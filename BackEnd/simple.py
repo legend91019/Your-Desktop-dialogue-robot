@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import requests
 
 project_root = str(Path(__file__).parent.parent.absolute())
 sys.path.append(project_root)
@@ -173,7 +174,7 @@ def init_model():
     "时间管理的四象限法则"  # 
     ]
     labels = [
-          1,1,1,1,1,  # Weather
+    1,1,1,1,1,  # Weather
     0,0,0,0,0,  # Tech
     0,0,0,0,0,  # History
     1,1,1,1,1,  # Current Events
@@ -237,16 +238,39 @@ def handle_chat():
                 return jsonify({"error": "消息不能为空"}), 400
         
         ai_response = ""
-        ai_response += f"您刚才说的是{user_message}\n"
-
+        
+        # 1. 让分类器判断意图
         questions = [user_message]
         predictions = classifier.predict(questions)
-        for q, pred in zip(questions, predictions):
-                ai_response += f"预测: {'需要检索' if pred == 1 else '直接生成'}\n"
-                ai_response += "-"*50
+        pred = predictions[0] # 获取判断结果（1或0）
 
-        predictions2 = retrieve_answer(user_message)
-        ai_response += f"{predictions2}"
+        # 2. 根据判断结果走不同的处理分支
+        if pred == 1:
+            # 【分支A：需要检索】 -> 调用学长的本地文档检索
+            ai_response += f"[知识库检索模式] 预测结果: 1\n"
+            ai_response += "-"*30 + "\n"
+            doc_answer = retrieve_answer(user_message)
+            ai_response += f"{doc_answer}"
+            
+        else:
+            # 【分支B：直接生成】 -> 调用本地的 Ollama Qwen2.5 模型
+            ai_response += f"[大模型闲聊模式] 预测结果: 0\n"
+            ai_response += "-"*30 + "\n"
+            
+            # 告诉 Ollama 我们要用哪个模型，以及用户问了什么
+            ollama_url = "http://localhost:11434/api/generate"
+            payload = {
+                "model": "qwen2.5:3b",
+                "prompt": user_message,
+                "stream": False # 等模型全部想完再一起返回
+            }
+            try:
+                # 向 Ollama 发送网络请求，超时时间设为 60 秒
+                res = requests.post(ollama_url, json=payload, timeout=60)
+                result = res.json()
+                ai_response += result.get("response", "大模型好像卡壳了...")
+            except Exception as e:
+                ai_response += f"连接大模型失败，请检查电脑右下角 Ollama 软件是否运行。报错信息: {e}"
         
         # 记录对话历史
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")

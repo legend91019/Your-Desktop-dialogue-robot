@@ -1,0 +1,21 @@
+# Python 缓存和虚拟环境
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+pytorch_env/
+.env
+
+# 前端依赖和构建产物
+FrontEnd/node_modules/
+FrontEnd/dist/
+FrontEnd/.vscode/
+
+# 项目产生的数据和日志
+uploads/
+*.log
+
+# 操作系统生成的文件
+.DS_Store
+Thumbs.db
