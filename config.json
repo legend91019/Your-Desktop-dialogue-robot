@@ -1,0 +1,20 @@
+{
+    "bot_settings": {
+        "name": "子铠",
+        "description": "一个温顺可爱的桌面陪伴机器人"
+    },
+    "model_settings": {
+        "ollama_model_id": "qwen2.5:3b",
+        "ollama_url": "http://localhost:11434/api/generate",
+        "classifier_path": "D:\\Downloads\\bert-base-chinese-finetuned",
+        "embedding_model": "BAAI/bge-small-zh-v1.5"
+    },
+    "path_settings": {
+        "knowledge_base": "knowledge.md",
+        "chroma_db_dir": "chroma_db"
+    },
+    "rag_settings": {
+        "top_k": 2,
+        "similarity_threshold": 0.4
+    }
+}

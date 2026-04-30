@@ -15,6 +15,16 @@ from utils.Retriever.retriever import create_rag_retriever
 
 app = Flask(__name__)
 
+import json
+
+# 加载配置文件
+def load_config():
+    config_path = os.path.join(os.path.dirname(__file__), '..', 'config.json')
+    with open(config_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+CONFIG = load_config()
+
 CORS(app, resources={
     r"/api/*": {
         "origins": "*",  # 只允许前端地址
@@ -36,7 +46,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def init_model():
     # 配置参数
-    model_path = r'D:\Downloads\bert-base-chinese-finetuned'
+    model_path = CONFIG['model_settings']['classifier_path']
     
     # 初始化分类器
     classifier = TextClassifier(model_path, num_labels=2)
@@ -172,6 +182,11 @@ def init_model():
     "手机电池保养技巧",  # 0
     "小米14Pro的摄像头参数",  # 1
     "时间管理的四象限法则"  # 
+    # 🔴 新增：大创专属 RAG 触发词
+    "王勇顺是谁？",
+    "你认识周子铠吗？",
+    "团队的架构师是谁？",
+    "阿顺最近在做什么？"
     ]
     labels = [
     1,1,1,1,1,  # Weather
@@ -191,23 +206,26 @@ def init_model():
     1,0,1,0,1,  # Law
     0,0,0,0,0,  # Psychology
     0,1,0,0,1,  # Art
-    0,1,0,1,0   # Miscellaneous
+    0,1,0,1,0,  # Miscellaneous
+    1,1,1,1,
     ]  # 1需要检索 0直接生成
     
-    # 初始化数据增强器
-    augmenter = DataAugmenter()
+    # 判断模型是否已经微调过（检测目录下有没有 pytorch_model.bin 或 safetensors 文件）
+    trained_model_file = os.path.join(model_path, "model.safetensors") 
     
-    # 训练模型
-    classifier.train(questions, labels, batch_size=4, epochs=5, augmenter=augmenter)
-    
-    # 保存模型
-    classifier.save_model()
+    if os.path.exists(trained_model_file):
+        print("✅ 检测到已训练好的分类器，直接加载...")
+    else:
+        print("🚀 首次运行，开始训练分类器...")
+        augmenter = DataAugmenter()
+        classifier.train(questions, labels, batch_size=4, epochs=5, augmenter=augmenter)
+        classifier.save_model()
 
     current_script_path = os.path.abspath(__file__)
     project_root = os.path.dirname(os.path.dirname(current_script_path))
-    docx_file = os.path.join(project_root, "input.docx")
+    md_file = os.path.join(project_root, "knowledge.md")
     
-    retrieve_answer = create_rag_retriever(docx_file)
+    retrieve_answer = create_rag_retriever(md_file)
 
     return classifier, retrieve_answer
     
@@ -243,44 +261,98 @@ def handle_chat():
         questions = [user_message]
         predictions = classifier.predict(questions)
         pred = predictions[0] # 获取判断结果（1或0）
+        
+        # ==================== 架构师的规则兜底 (强拦截) ====================
+        # 只要用户的话里包含了我们知识库里的“实体词”，无视交通警察的误判，强制去翻书！
+        force_rag_keywords = ["王勇顺", "周子铠", "杰哥", "侯立坤", "同桌", "团队", "架构师", "阿顺"]
+        if any(keyword in user_message for keyword in force_rag_keywords):
+            print(f"⚠️ 规则引擎触发：检测到专属知识库实体，强制将路由切换为 1 (RAG模式)")
+            pred = 1
+        # ===================================================================
+        
+        #===================== 模型短期记忆，实现方法就是提示词工程，把history_text拼接到context =======================================
+        history_text = ""
+        
+        recent_history = chat_history[-10:] if len(chat_history) > 0 else []
 
-        # 2. 根据判断结果走不同的处理分支
+        for msg in recent_history:
+            role = "User" if msg["type"] == "User" else "Assistant"
+            history_text += f"{role}:{msg['content']}\n"
+            
+            
+        # ==================== 提示词组装 (Skill工程 + Context) ====================
+        bot_name = CONFIG['bot_settings']['name']
+        
         if pred == 1:
-            # 【分支A：需要检索】 -> 调用学长的本地文档检索
-            ai_response += f"[知识库检索模式] 预测结果: 1\n"
-            ai_response += "-"*30 + "\n"
-            doc_answer = retrieve_answer(user_message)
-            ai_response += f"{doc_answer}"
+            # 【分支A：RAG 增强模式】
+            ai_response += f"[知识库增强生成模式]\n"
+            
+            # 第一步：去知识库里搜索相关的文本片段
+            context_text = retrieve_answer(user_message)
+            
+            # 第二步：把搜索到的文本作为 Context，拼接到 Prompt 中
+            final_prompt = f"""
+                你是一个叫「{bot_name}」的聪明、贴心的桌面陪伴机器人。请严格根据下面提供的【参考资料】来回答用户的问题。
+                如果你在【参考资料】中找不到答案，请诚实地说明你不知道，千万不要自己瞎编。
+                回答要简洁、口语化，像人类正常对话一样。
+
+                【参考资料】:
+                {context_text}
+                
+                【近期对话历史】:
+                {history_text}
+
+                【用户当前提问】:
+                {user_message}
+            """
             
         else:
-            # 【分支B：直接生成】 -> 调用本地的 Ollama Qwen2.5 模型
-            ai_response += f"[大模型闲聊模式] 预测结果: 0\n"
-            ai_response += "-"*30 + "\n"
+            # 【分支B：自由闲聊模式】
+            ai_response += f"[自由闲聊模式]\n"
             
-            # 告诉 Ollama 我们要用哪个模型，以及用户问了什么
-            ollama_url = "http://localhost:11434/api/generate"
-            payload = {
-                "model": "qwen2.5:3b",
-                "prompt": user_message,
-                "stream": False # 等模型全部想完再一起返回
-            }
-            try:
-                # 向 Ollama 发送网络请求，超时时间设为 60 秒
-                res = requests.post(ollama_url, json=payload, timeout=60)
-                result = res.json()
-                ai_response += result.get("response", "大模型好像卡壳了...")
-            except Exception as e:
-                ai_response += f"连接大模型失败，请检查电脑右下角 Ollama 软件是否运行。报错信息: {e}"
+            # 闲聊模式不需要搜索，直接给大模型设定人设
+            final_prompt = f"""
+                你是一个叫「{bot_name}」的幽默、可爱的桌面陪伴机器人。用户现在正在和你闲聊。
+                请用生动、带一点小情绪的语气回答，偶尔可以使用 Emoji 表情。
+                回答尽量简短，不要长篇大论。
+                
+                【近期对话历史】:
+                {history_text}
+
+                【用户当前提问】:
+                {user_message}
+            """
+
+        # ==================== 统一请求大模型生成 ====================
         
-        # 记录对话历史
+        # 把最终拼好的 prompt 发给 Ollama
+        ollama_url = CONFIG["model_settings"]["ollama_url"]
+        payload = {
+            "model": CONFIG['model_settings']['ollama_model_id'],
+            "prompt": final_prompt,
+            "stream": False 
+        }
+        
+        try:
+            # 调用大模型，把 Context 消化后生成人类自然语言
+            res = requests.post(ollama_url, json=payload, timeout=300)
+            result = res.json()
+            
+            # 拿到大模型最终生成的回答！
+            ai_response += result.get("response", "我脑袋有点晕，没想出来...")
+            
+        except Exception as e:
+            ai_response = f"连接大模型失败，请检查电脑右下角 Ollama 软件是否运行。报错信息: {e}"
+
+        # 记录对话历史 (后面的代码保持原样不要动)
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         chat_history.append({
-            "type": "user",
+            "type": "User",
             "content": user_message,
             "timestamp": timestamp
         })
         chat_history.append({
-            "type": "ai",
+            "type": "Assistant",
             "content": ai_response,
             "timestamp": timestamp
         })
@@ -310,14 +382,14 @@ def handle_upload():
         # 记录上传历史并返回固定消息
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         chat_history.append({
-            "type": "user",
+            "type": "User",
             "content": f"上传了文件：{file.filename}",
             "timestamp": timestamp
         })
         
         ai_response = f"文件「{file.filename}」已接收，这是固定的处理结果"
         chat_history.append({
-            "type": "ai",
+            "type": "Assistant",
             "content": ai_response,
             "timestamp": timestamp
         })
