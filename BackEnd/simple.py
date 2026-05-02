@@ -13,6 +13,9 @@ from utils.Classifier.classifier import TextClassifier
 from utils.Classifier.data_utils import DataAugmenter
 from utils.Retriever.retriever import create_rag_retriever
 
+import threading
+import hashlib
+
 app = Flask(__name__)
 
 import json
@@ -44,6 +47,87 @@ if not os.path.exists(UPLOAD_FOLDER):
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 
+def extract_and_save_memory(user_msg):
+    """异步记忆提取器：利用大模型分析用户输入，提取长期价值信息并存入 ChromaDB"""
+    
+    bot_name = CONFIG['bot_settings']['name']
+    
+    # 1. 组装专门用于“提取记忆”的 Prompt
+    extract_prompt = f"""
+    请你作为一个无感情的记忆提取机器。分析用户的这句话："{user_msg}"
+    如果这句话包含用户的个人喜好、习惯、重要经历等长期价值内容，请完成以下两步：
+    第一步：提取为一句第三人称客观陈述句（以“主人”为主语）。
+    第二步：提取出 1 到 2 个最核心的名词实体（作为日后唤醒这条记忆的专属触发词）。
+    请严格按照格式输出：陈述句 | 实体1,实体2
+    
+    如果没有包含这类信息，请严格只回复一个字：“无”。
+    不要有任何解释，不要包含标点符号。
+
+    例如：
+    输入："我今天去吃了一家超好吃的日料，我最喜欢吃三文鱼了" -> 输出：主人最喜欢吃三文鱼 | 日料,三文鱼
+    输入："今天天气真好" -> 输出：无
+    """
+    
+    payload = {
+        "model": CONFIG['model_settings']['ollama_model_id'], 
+        "prompt": extract_prompt,
+        "stream": False
+    }
+    
+    try:
+        # 2. 呼叫模型进行意图判断
+        res = requests.post(CONFIG['model_settings']['ollama_url'], json=payload, timeout=30)
+        memory_text = res.json().get("response", "").strip()
+        
+        # 3. 如果提取到了有效记忆（滤除“无”和乱码长句）
+        if memory_text and "无" not in memory_text and len(memory_text) < 50:
+            parts = memory_text.split("|")
+            statement = parts[0].strip()
+            keywords = [k.strip() for k in parts[1].split(",") if k.strip()]
+            
+            print(f"\n[🧠 触发动态学习] {bot_name} 捕捉到新记忆：{memory_text}")
+            print(f"[🏷️ 自动提炼唤醒词] {keywords}")
+            
+            # 为了线程安全，在这个独立线程中临时连一下数据库
+            import chromadb
+            from sentence_transformers import SentenceTransformer
+            
+            # 读取配置中的路径和模型
+            db_dir = os.path.join(os.path.dirname(__file__), '..', CONFIG['path_settings']['chroma_db_dir'])
+            client = chromadb.PersistentClient(path=db_dir)
+            collection = client.get_or_create_collection(name="qbit_memory")
+            embed_model = SentenceTransformer(CONFIG['model_settings']['embedding_model'])
+            
+            # 将新记忆转为向量并生成唯一 ID
+            emb = embed_model.encode([memory_text], normalize_embeddings=True).tolist()[0]
+            mem_id = hashlib.md5(memory_text.encode('utf-8')).hexdigest()[:12]
+            
+            # 悄悄写入 ChromaDB 硬盘
+            collection.upsert(
+                ids=[mem_id],
+                documents=[memory_text],
+                embeddings=[emb],
+                metadatas=[{
+                    "type": "user_preference", # 🔴 这是一个全新的元数据标签：用户偏好
+                    "source": "dynamic_memory", 
+                    "title": "主人动态画像",
+                    "chunk_index": 9999
+                }]
+            )
+            print("[✅ 记忆写入完成] 该记忆已永久存入边缘设备芯片！\n")
+            
+            keywords_file = os.path.join(os.path.dirname(__file__), '..', 'dynamic_keywords.txt')
+            with open(keywords_file, 'a', encoding='utf-8') as f:
+                for kw in keywords:
+                    if len(kw) > 1: # 过滤掉单字垃圾词
+                        f.write(f"{kw}\n")
+            
+    except Exception as e:
+        print(f"后台记忆写入出错，但这不影响前端聊天: {e}")
+        
+    
+
+
 def init_model():
     # 配置参数
     model_path = CONFIG['model_settings']['classifier_path']
@@ -51,175 +135,11 @@ def init_model():
     # 初始化分类器
     classifier = TextClassifier(model_path, num_labels=2)
     
-    # 加载模型
+    # 纯粹的加载逻辑，没有任何训练包袱
     if not classifier.load_model():
-        return
-    
-# 示例数据
-    questions = [
-    # Weather/Environment (1)
-    "上海明天的气温是多少？", 
-    "洛杉矶现在下雨了吗？",
-    "台风路径实时查询",
-    "未来一周广州的天气预报",
-    "当前北极的臭氧层状况如何？",
-
-    # Technology/Programming (0)
-    "Python和Java哪个更容易学习？",
-    "如何用Pandas合并两个DataFrame？",
-    "解释一下区块链的工作原理",
-    "神经网络中的反向传播是什么？",
-    "Git rebase和merge的区别是什么？",
-
-    # History/Facts (0)
-    "明朝有多少位皇帝？",
-    "第一次工业革命开始于哪一年？",
-    "爱因斯坦获得诺贝尔奖的贡献是什么？",
-    "金字塔是如何建造的？",
-    "丝绸之路的起点和终点在哪里？",
-
-    # Current Events (1)
-    "最新一期Nature期刊的主要内容",
-    "2024年奥运会奖牌榜",
-    "美联储最近的利率决策是什么？",
-    "特斯拉最新车型的发布时间",
-    "近期国际原油价格走势",
-
-    # Health/Medicine (mixed)
-    "新冠疫苗的常见副作用有哪些？",  # 0
-    "北京协和医院心内科专家号怎么挂？",  # 1
-    "糖尿病患者的饮食建议",  # 0
-    "最近的诺贝尔医学奖得主是谁？",  # 1
-    "针灸治疗失眠有效吗？",  # 0
-
-    # Entertainment (mixed)
-    "最新一季《权力的游戏》评分如何？",  # 1
-    "《红楼梦》的主要人物关系",  # 0
-    "Taylor Swift演唱会上海站门票价格",  # 1
-    "奥斯卡最佳影片评选标准",  # 0
-    "Netflix上评分最高的科幻剧",  # 1
-
-    # Daily Life (mixed)
-    "如何去除衣服上的油渍？",  # 0
-    "上海浦东机场T2航站楼餐饮店铺",  # 1
-    "自制面包的简单配方",  # 0
-    "北京到广州高铁时刻表",  # 1
-    "室内养什么植物净化空气好？",  # 0
-
-    # Science (0)
-    "量子纠缠的基本原理",
-    "黑洞是如何形成的？",
-    "DNA双螺旋结构的特点",
-    "相对论和量子力学的矛盾点",
-    "光合作用的光反应和暗反应",
-
-    # Economy/Finance (mixed)
-    "美联储加息对A股的影响分析",  # 1
-    "GDP的计算方法",  # 0
-    "最新人民币兑美元汇率",  # 1
-    "价值投资的基本原则",  # 0
-    "2023年全球富豪榜前十名",  # 1
-
-    # Education (mixed)
-    "清华大学计算机专业录取分数线",  # 1
-    "如何提高英语听力水平？",  # 0
-    "雅思和托福哪个更容易？",  # 0
-    "哈佛大学最新招生政策",  # 1
-    "记忆宫殿法的具体操作步骤",  # 0
-
-    # Travel (mixed)
-    "日本旅游签证最新办理要求",  # 1
-    "巴黎铁塔的开放时间",  # 1
-    "东南亚旅游最佳季节",  # 0
-    "携程上三亚五星酒店特价信息",  # 1
-    "独自旅行安全注意事项",  # 0
-    
-    # Philosophy (0)
-    "康德的先验哲学指什么？",
-    "道家思想的核心观点",
-    "苏格拉底的产婆术是什么？",
-    "尼采的超人哲学如何理解",
-    "唯物主义和唯心主义的区别",
-    
-    # Sports (mixed)
-    "NBA最新赛季得分王是谁？",  # 1
-    "羽毛球比赛规则",  # 0
-    "中国男足最新世界排名",  # 1
-    "马拉松训练计划",  # 0
-    "F1赛车2024赛季赛程",  # 1
-
-    # Cooking (0)
-    "红烧肉的正宗做法",
-    "如何判断牛排的熟度？",
-    "蛋糕胚不塌陷的技巧",
-    "素食者蛋白质补充方案",
-    "咖啡豆的烘焙程度区别",
-    
-    # Law (mixed)
-    "中国最新劳动法修订内容",  # 1
-    "正当防卫的法律界定",  # 0
-    "上海购房限购政策2024",  # 1
-    "知识产权保护期限",  # 0
-    "最新个人所得税起征点",  # 1
-    
-    # Psychology (0)
-    "马斯洛需求层次理论",
-    "认知失调理论的应用",
-    "如何克服社交恐惧？",
-    "抑郁症的早期表现",
-    "正念冥想的具体方法",
-    
-    # Art (mixed)
-    "卢浮宫镇馆三宝是什么？",  # 0
-    "2024威尼斯双年展主题",  # 1
-    "中国山水画的特点",  # 0
-    "毕加索蓝色时期的代表作",  # 0
-    "最近故宫特展的开放时间",  # 1
-    
-    # Miscellaneous
-    "如何修复破损的PDF文件？",  # 0
-    "Windows11最新更新内容",  # 1
-    "手机电池保养技巧",  # 0
-    "小米14Pro的摄像头参数",  # 1
-    "时间管理的四象限法则"  # 
-    # 🔴 新增：大创专属 RAG 触发词
-    "王勇顺是谁？",
-    "你认识周子铠吗？",
-    "团队的架构师是谁？",
-    "阿顺最近在做什么？"
-    ]
-    labels = [
-    1,1,1,1,1,  # Weather
-    0,0,0,0,0,  # Tech
-    0,0,0,0,0,  # History
-    1,1,1,1,1,  # Current Events
-    0,1,0,1,0,  # Health
-    1,0,1,0,1,  # Entertainment
-    0,1,0,1,0,  # Daily Life
-    0,0,0,0,0,  # Science
-    1,0,1,0,1,  # Economy
-    1,0,0,1,0,  # Education
-    1,1,0,1,0,  # Travel
-    0,0,0,0,0,  # Philosophy
-    1,0,1,0,1,  # Sports
-    0,0,0,0,0,  # Cooking
-    1,0,1,0,1,  # Law
-    0,0,0,0,0,  # Psychology
-    0,1,0,0,1,  # Art
-    0,1,0,1,0,  # Miscellaneous
-    1,1,1,1,
-    ]  # 1需要检索 0直接生成
-    
-    # 判断模型是否已经微调过（检测目录下有没有 pytorch_model.bin 或 safetensors 文件）
-    trained_model_file = os.path.join(model_path, "model.safetensors") 
-    
-    if os.path.exists(trained_model_file):
-        print("✅ 检测到已训练好的分类器，直接加载...")
+        print("❌ 致命警告：未找到训练好的分类器模型！请先在根目录运行 python train_classifier.py")
     else:
-        print("🚀 首次运行，开始训练分类器...")
-        augmenter = DataAugmenter()
-        classifier.train(questions, labels, batch_size=4, epochs=5, augmenter=augmenter)
-        classifier.save_model()
+        print("✅ 交通警察 (分类器权重) 加载成功！")
 
     current_script_path = os.path.abspath(__file__)
     project_root = os.path.dirname(os.path.dirname(current_script_path))
@@ -262,14 +182,35 @@ def handle_chat():
         predictions = classifier.predict(questions)
         pred = predictions[0] # 获取判断结果（1或0）
         
-        # ==================== 架构师的规则兜底 (强拦截) ====================
-        # 只要用户的话里包含了我们知识库里的“实体词”，无视交通警察的误判，强制去翻书！
-        force_rag_keywords = ["王勇顺", "周子铠", "杰哥", "侯立坤", "同桌", "团队", "架构师", "阿顺"]
-        if any(keyword in user_message for keyword in force_rag_keywords):
-            print(f"⚠️ 规则引擎触发：检测到专属知识库实体，强制将路由切换为 1 (RAG模式)")
-            pred = 1
-        # ===================================================================
+        # ==================== 智能路由中枢 (双引擎并行) ====================
+        rule_triggered = False
         
+        # 1. 优先从 config.json 读取静态配置词，如果没有配，就用这套基础版兜底
+        static_keywords = CONFIG.get('routing_settings', {}).get('force_rag_keywords', [
+            "王勇顺", "周子铠", "杰哥", "侯立坤", "同桌", "团队", "架构师", "阿顺", "记得", "喜欢", "谁", "什么", "怎么"
+        ])
+        force_rag_keywords = set(static_keywords)
+        
+        # 2. 动态加载大模型学习到的唤醒词
+        keywords_file = os.path.join(os.path.dirname(__file__), '..', 'dynamic_keywords.txt')
+        if os.path.exists(keywords_file):
+            with open(keywords_file, 'r', encoding='utf-8') as f:
+                dynamic_words = [line.strip() for line in f if line.strip()]
+                force_rag_keywords.update(dynamic_words) # 把动态词合并进拦截池
+        
+        # 3. 开始精准拦截判断 (防御机制：长度大于1才触发，防误触)
+        if len(user_message) > 1: 
+            for keyword in force_rag_keywords:
+                if keyword in user_message:
+                    rule_triggered = True
+                    print(f"⚠️ [双引擎路由] 规则捕获到实体词「{keyword}」，强制切换为 RAG 模式！")
+                    pred = 1
+                    break
+        
+        if not rule_triggered:
+            mode_str = "RAG检索" if pred == 1 else "直接生成"
+            print(f"🧠 [双引擎路由] 规则未命中，分类器模型推断结果为：{mode_str} (pred={pred})")
+        # ===================================================================
         #===================== 模型短期记忆，实现方法就是提示词工程，把history_text拼接到context =======================================
         history_text = ""
         
@@ -356,6 +297,11 @@ def handle_chat():
             "content": ai_response,
             "timestamp": timestamp
         })
+        
+        # ==================== 触发异步记忆提取 ====================
+        # 把用户刚说的话，丢给后台的记忆提取器慢慢分析
+        threading.Thread(target=extract_and_save_memory, args=(user_message,)).start()
+        # ==========================================================
         
         return jsonify({
             "response": ai_response,

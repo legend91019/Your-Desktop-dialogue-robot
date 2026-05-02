@@ -16,5 +16,8 @@
     "rag_settings": {
         "top_k": 2,
         "similarity_threshold": 0.4
+    },
+    "routing_settings": {
+        "force_rag_keywords": ["王勇顺", "周子铠", "杰哥", "侯立坤", "同桌", "团队", "架构师", "阿顺", "记得", "喜欢", "谁", "什么", "怎么"]
     }
 }
