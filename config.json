@@ -4,7 +4,7 @@
         "description": "一个温顺可爱的桌面陪伴机器人"
     },
     "model_settings": {
-        "ollama_model_id": "qwen2.5:3b",
+        "ollama_model_id": "qwen3.5:4b",
         "ollama_url": "http://localhost:11434/api/generate",
         "classifier_path": "D:\\Downloads\\bert-base-chinese-finetuned",
         "embedding_model": "BAAI/bge-small-zh-v1.5"

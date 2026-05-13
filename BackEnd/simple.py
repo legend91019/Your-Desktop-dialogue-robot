@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 import requests
-
+from flask_cors import CORS # 如果运行报错，请在终端执行 pip install flask-cors
 project_root = str(Path(__file__).parent.parent.absolute())
 sys.path.append(project_root)
 
@@ -17,6 +17,7 @@ import threading
 import hashlib
 
 app = Flask(__name__)
+CORS(app) # 这行代码就像给前端开了一张“通行证”
 
 import json
 
@@ -68,16 +69,31 @@ def extract_and_save_memory(user_msg):
     输入："今天天气真好" -> 输出：无
     """
     
+    deepseek_api_key = "REDACTED_DEEPSEEK_KEY"  # 🔴 记得替换！
+    deepseek_url = "https://api.deepseek.com/chat/completions"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {deepseek_api_key}"
+    }
+
     payload = {
-        "model": CONFIG['model_settings']['ollama_model_id'], 
-        "prompt": extract_prompt,
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "user", "content": extract_prompt}
+        ],
         "stream": False
     }
     
     try:
-        # 2. 呼叫模型进行意图判断
-        res = requests.post(CONFIG['model_settings']['ollama_url'], json=payload, timeout=30)
-        memory_text = res.json().get("response", "").strip()
+        # 2. 呼叫云端模型提取记忆和实体词
+        res = requests.post(deepseek_url, headers=headers, json=payload, timeout=30)
+        
+        if res.status_code == 200:
+            memory_text = res.json()['choices'][0]['message']['content'].strip()
+        else:
+            memory_text = "无" # 如果 API 报错，就当做没提取到记忆，防止程序崩溃
+            print(f"后台记忆提取 API 报错: {res.text}")
         
         # 3. 如果提取到了有效记忆（滤除“无”和乱码长句）
         if memory_text and "无" not in memory_text and len(memory_text) < 50:
@@ -266,25 +282,41 @@ def handle_chat():
 
         # ==================== 统一请求大模型生成 ====================
         
-        # 把最终拼好的 prompt 发给 Ollama
-        ollama_url = CONFIG["model_settings"]["ollama_url"]
+        # ==================== 统一请求大模型生成 (DeepSeek 云端版) ====================
+        
+        deepseek_api_key = "REDACTED_DEEPSEEK_KEY"  # 🔴 记得替换！
+        deepseek_url = "https://api.deepseek.com/chat/completions"
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {deepseek_api_key}"
+        }
+        
         payload = {
-            "model": CONFIG['model_settings']['ollama_model_id'],
-            "prompt": final_prompt,
+            "model": "deepseek-chat",  # 指定 DeepSeek 对话模型
+            "messages": [
+                {"role": "user", "content": final_prompt} # 将你精心组装的 Prompt 发送过去
+            ],
             "stream": False 
         }
         
         try:
-            # 调用大模型，把 Context 消化后生成人类自然语言
-            res = requests.post(ollama_url, json=payload, timeout=300)
-            result = res.json()
+            print("🚀 正在呼叫云端超级大脑 (DeepSeek)...")
+            res = requests.post(deepseek_url, headers=headers, json=payload, timeout=30)
             
-            # 拿到大模型最终生成的回答！
-            ai_response += result.get("response", "我脑袋有点晕，没想出来...")
+            # 检查 HTTP 状态码，防止 API 欠费或报错没被捕获
+            if res.status_code == 200:
+                res_data = res.json()
+                # DeepSeek (OpenAI格式) 提取回复文本的路径
+                bot_reply = res_data['choices'][0]['message']['content']
+                ai_response += bot_reply
+            else:
+                print(f"云端 API 报错: {res.text}")
+                ai_response += "芯宝的大脑服务器开小差了，稍后再试哦 QwQ"
             
         except Exception as e:
-            ai_response = f"连接大模型失败，请检查电脑右下角 Ollama 软件是否运行。报错信息: {e}"
-
+            ai_response += f"连接云端大脑失败，检查一下网络哦。报错信息: {e}"
+            
         # 记录对话历史 (后面的代码保持原样不要动)
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         chat_history.append({
