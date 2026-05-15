@@ -75,6 +75,25 @@
     .screen.hidden { opacity: 0; pointer-events: none; transform: scale(1.1); filter: blur(10px); z-index: 0; }
 
     /* ================= 欢迎界面 (科幻切角面板) ================= */
+    /* ================= 设置面板专属样式 ================= */
+    .config-btn {
+      background: transparent; color: rgba(102, 248, 255, 0.5);
+      border: 1px dashed rgba(102, 248, 255, 0.5); padding: 10px 20px;
+      font-family: 'Press Start 2P', monospace; font-size: 10px; cursor: pointer;
+      margin-top: 20px; transition: 0.3s; border-radius: 4px;
+    }
+    .config-btn:hover { color: var(--neon-cyan); border-color: var(--neon-cyan); box-shadow: 0 0 10px rgba(102, 248, 255, 0.2); }
+
+    .input-group { width: 100%; margin-bottom: 15px; text-align: left; }
+    .input-group label { display: block; font-size: 10px; color: var(--neon-pink); margin-bottom: 8px; }
+    .input-group input { 
+      width: 100%; background: rgba(0,0,0,0.6); border: 1px solid var(--neon-cyan); 
+      color: var(--text-white); padding: 10px; font-family: 'Microsoft YaHei', sans-serif; 
+      font-size: 12px; outline: none; border-radius: 4px;
+    }
+    .input-group input:focus { box-shadow: 0 0 15px rgba(102, 248, 255, 0.4); }
+
+
     #welcome-screen { justify-content: center; align-items: center; }
     .welcome-panel {
       position: relative; padding: 60px 80px;
@@ -278,6 +297,36 @@
         <div class="sys-status">> NEURAL LINK OFFLINE</div>
         <h1 class="welcome-title">CYBER<br><span class="pink-text">ROBOT</span></h1>
         <button class="start-btn" onclick="startGame()">> PRESS START <</button>
+        <button class="config-btn" onclick="openSettings()">[ SYSTEM CONFIG ]</button>
+      </div>
+    </div>
+
+    <div id="settings-modal" class="screen hidden" style="z-index: 999; background: rgba(0,0,0,0.85); justify-content: center; align-items: center;">
+      <div class="welcome-panel" style="width: 450px; padding: 40px;">
+        <div class="sys-status">> INITIALIZE PROTOCOL</div>
+        <h2 style="color: var(--neon-cyan); margin-bottom: 25px; font-size: 18px; font-family: 'Press Start 2P', monospace;">SYS.CONFIG</h2>
+
+        <div class="input-group">
+          <label>> MASTER_NAME (主人称呼):</label>
+          <input type="text" id="cfg-name" placeholder="如：阿顺" autocomplete="off">
+        </div>
+        <div class="input-group">
+          <label>> OCCUPATION (你的身份):</label>
+          <input type="text" id="cfg-occ" placeholder="如：计算机专业大学生" autocomplete="off">
+        </div>
+        <div class="input-group">
+          <label>> CURRENT_STATUS (近期状态):</label>
+          <input type="text" id="cfg-status" placeholder="如：最近在搞大创，压力大需要鼓励" autocomplete="off">
+        </div>
+        <div class="input-group" style="margin-bottom: 30px;">
+          <label>> DEEPSEEK_API_KEY (云端大脑秘钥):</label>
+          <input type="password" id="cfg-key" placeholder="sk-..." autocomplete="off">
+        </div>
+
+        <div style="display: flex; gap: 20px; width: 100%; justify-content: space-between;">
+          <button class="config-btn" style="margin-top: 0; width: 45%;" onclick="closeSettings()">CANCEL</button>
+          <button class="start-btn" style="margin-top: 0; width: 45%; padding: 10px; font-size: 12px; color: #000; background: var(--neon-cyan);" onclick="saveSettings()">SAVE & BOOT</button>
+        </div>
       </div>
     </div>
 
@@ -355,6 +404,52 @@
     const input = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
     const chatBox = document.getElementById('chatBox');
+    // 🔴 获取弹窗元素
+    const settingsModal = document.getElementById('settings-modal');
+
+    // 打开/关闭面板
+    function openSettings() { settingsModal.classList.remove('hidden'); }
+    function closeSettings() { settingsModal.classList.add('hidden'); }
+
+    // 🔴 核心逻辑：保存设定并发送给后端
+    async function saveSettings() {
+      const name = document.getElementById('cfg-name').value.trim();
+      const occ = document.getElementById('cfg-occ').value.trim();
+      const status = document.getElementById('cfg-status').value.trim();
+      const key = document.getElementById('cfg-key').value.trim();
+
+      if (!key) {
+        alert("[ ERROR ] 必须输入 DeepSeek API Key 才能唤醒芯宝哦！");
+        return;
+      }
+
+      try {
+        // 调用我们刚刚在 simple.py 里新写的 /api/settings 接口
+        const response = await fetch('http://127.0.0.1:5000/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            master_name: name || "阿顺", // 如果没填，给个默认值
+            occupation: occ || "计算机专业大学生",
+            current_status: status || "最近压力比较大，需要多鼓励",
+            api_key: key
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          alert("[ SUCCESS ] " + data.message);
+          closeSettings();
+          // 配置完直接硬核启动进入聊天室！
+          startGame(); 
+        } else {
+          alert("[ ERROR ] 保存失败，请检查终端后端 simple.py 是否运行。");
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        alert("[ FATAL ] 糟糕，前端跟本地大脑失去联系了！");
+      }
+    }
     let isTyping = false;
 
     function startGame() {

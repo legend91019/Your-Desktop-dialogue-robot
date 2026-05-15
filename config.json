@@ -1,6 +1,6 @@
 {
     "bot_settings": {
-        "name": "子铠",
+        "name": "芯宝",
         "description": "一个温顺可爱的桌面陪伴机器人"
     },
     "model_settings": {
@@ -18,6 +18,19 @@
         "similarity_threshold": 0.4
     },
     "routing_settings": {
-        "force_rag_keywords": ["王勇顺", "周子铠", "杰哥", "侯立坤", "同桌", "团队", "架构师", "阿顺", "记得", "喜欢", "谁", "什么", "怎么"]
+        "force_rag_keywords": [
+            "芯宝", 
+            "团队", "创造者", "开发", "架构师", 
+            "王勇顺", "阳泽怡", "徐启恒", "杨赛宇",
+            "记得", "喜欢", "习惯", "谁", "什么", "怎么", "以前", "过去", "聊过"
+        ]
+    },
+    "user_settings": {
+        "master_name": "",
+        "occupation": "",
+        "current_status": ""
+    },
+    "api_settings": {
+        "deepseek_api_key": ""
     }
 }

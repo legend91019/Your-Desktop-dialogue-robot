@@ -17,15 +17,63 @@ import threading
 import hashlib
 
 app = Flask(__name__)
-CORS(app) # 这行代码就像给前端开了一张“通行证”
+
 
 import json
+
+# ==================== 队友新增：好感度持久化逻辑 ====================
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+FAVORABILITY_FILE = os.path.join(BACKEND_DIR, "favorability.json")
+
+def get_favorability():
+    """获取当前好感度分数"""
+    if os.path.exists(FAVORABILITY_FILE):
+        try:
+            with open(FAVORABILITY_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f).get('score', 50)
+        except:
+            return 50
+    save_favorability(50)
+    return 50
+
+def save_favorability(score):
+    """保存好感度分数并限制范围 [0, 100]"""
+    score = max(0, min(100, score))
+    with open(FAVORABILITY_FILE, 'w', encoding='utf-8') as f:
+        json.dump({"score": score}, f, ensure_ascii=False, indent=2)
+    return score
 
 # 加载配置文件
 def load_config():
     config_path = os.path.join(os.path.dirname(__file__), '..', 'config.json')
     with open(config_path, 'r', encoding='utf-8') as f:
         return json.load(f)
+    
+# --- 新增：保存配置的函数 ---
+def save_config(new_config):
+    global CONFIG
+    config_path = os.path.join(os.path.dirname(__file__), '..', 'config.json')
+    with open(config_path, 'w', encoding='utf-8') as f:
+        json.dump(new_config, f, indent=4, ensure_ascii=False)
+    CONFIG = new_config
+
+# --- 新增：接收前端弹窗数据的 API 接口 ---
+@app.route('/api/settings', methods=['POST'])
+def update_settings():
+    data = request.json
+    
+    # 确保字典结构存在
+    if 'user_settings' not in CONFIG: CONFIG['user_settings'] = {}
+    if 'api_settings' not in CONFIG: CONFIG['api_settings'] = {}
+    
+    # 接收前端传来的数据
+    if 'master_name' in data: CONFIG['user_settings']['master_name'] = data['master_name']
+    if 'occupation' in data: CONFIG['user_settings']['occupation'] = data['occupation']
+    if 'current_status' in data: CONFIG['user_settings']['current_status'] = data['current_status']
+    if 'api_key' in data: CONFIG['api_settings']['deepseek_api_key'] = data['api_key']
+    
+    save_config(CONFIG)
+    return jsonify({"message": "芯宝的初始核心设定已保存！"})
 
 CONFIG = load_config()
 
@@ -69,7 +117,12 @@ def extract_and_save_memory(user_msg):
     输入："今天天气真好" -> 输出：无
     """
     
-    deepseek_api_key = "REDACTED_DEEPSEEK_KEY"  # 🔴 记得替换！
+    deepseek_api_key = CONFIG.get('api_settings', {}).get('deepseek_api_key', '')
+    
+    if not deepseek_api_key:
+        # 异步记忆提取里如果没key直接 return，闲聊路由里可以返回下面这句话
+        return jsonify({"response": "哎呀，芯宝还没有接入云端神经元网络呢，请先在设置里输入 API Key 呀~"})
+    
     deepseek_url = "https://api.deepseek.com/chat/completions"
     
     headers = {
@@ -104,15 +157,8 @@ def extract_and_save_memory(user_msg):
             print(f"\n[🧠 触发动态学习] {bot_name} 捕捉到新记忆：{memory_text}")
             print(f"[🏷️ 自动提炼唤醒词] {keywords}")
             
-            # 为了线程安全，在这个独立线程中临时连一下数据库
-            import chromadb
-            from sentence_transformers import SentenceTransformer
-            
-            # 读取配置中的路径和模型
-            db_dir = os.path.join(os.path.dirname(__file__), '..', CONFIG['path_settings']['chroma_db_dir'])
-            client = chromadb.PersistentClient(path=db_dir)
-            collection = client.get_or_create_collection(name="qbit_memory")
-            embed_model = SentenceTransformer(CONFIG['model_settings']['embedding_model'])
+            # 🔴 直接呼叫我们刚才在最下面加载好的全局“公共模型”
+            global embed_model, collection
             
             # 将新记忆转为向量并生成唯一 ID
             emb = embed_model.encode([memory_text], normalize_embeddings=True).tolist()[0]
@@ -143,8 +189,12 @@ def extract_and_save_memory(user_msg):
         
     
 
+# 🔴 新增：在函数外面声明两个全局变量，当作“公共大厅”
+embed_model = None
+collection = None
 
 def init_model():
+    global embed_model, collection
     # 配置参数
     model_path = CONFIG['model_settings']['classifier_path']
     
@@ -162,6 +212,20 @@ def init_model():
     md_file = os.path.join(project_root, "knowledge.md")
     
     retrieve_answer = create_rag_retriever(md_file)
+    
+    # ==================== 🔴 以下是新增的修改 ====================
+    # 3. 启动时，一次性把“几百兆的向量模型”和“数据库连接”加载好
+    import chromadb
+    from sentence_transformers import SentenceTransformer
+    print("⏳ 正在启动后台记忆处理引擎 (只加载一次，防止内存爆炸)...")
+    
+    db_dir = os.path.join(project_root, CONFIG['path_settings']['chroma_db_dir'])
+    client = chromadb.PersistentClient(path=db_dir)
+    collection = client.get_or_create_collection(name="qbit_memory")
+    embed_model = SentenceTransformer(CONFIG['model_settings']['embedding_model'])
+    
+    print("✅ 后台记忆处理引擎已稳固挂载！")
+    # ==============================================================
 
     return classifier, retrieve_answer
     
@@ -193,6 +257,54 @@ def handle_chat():
         
         ai_response = ""
         
+        # ==================== 队友新增：好感度计算与拦截系统 ====================
+        fav_score = get_favorability()
+        favor_tip = ""
+
+        # [拦截] 1. 查询好感度：如果用户直接问，直接回复，不消耗大模型 API
+        if any(word in user_message for word in ["好感度", "好感值", "喜欢我吗", "你有多喜欢我"]):
+            if fav_score > 80:
+                ai_response = f"🥰 主人～当前好感度：{fav_score}！我超级超级喜欢你！要贴贴要抱抱～"
+            elif fav_score < 30:
+                ai_response = f"💢 哼，好感度只有 {fav_score} 而已…谁叫你老是欺负我！"
+            else:
+                ai_response = f"✨ 当前好感度：{fav_score}，继续触发亲密话术可以提升好感哦～"
+            
+            # 直接返回，记录历史
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            chat_history.append({"type": "User", "content": user_message, "timestamp": timestamp})
+            chat_history.append({"type": "Assistant", "content": ai_response, "timestamp": timestamp})
+            return jsonify({"response": ai_response, "timestamp": timestamp})
+
+        # [计算] 2. 好感度奖惩系统
+        add_words = ["乖", "真棒", "厉害", "太聪明了", "好可爱", "超可爱", "爱你", "喜欢你", "贴贴", "抱抱", "摸摸头", "揉揉头"]
+        sub_words = ["笨", "讨厌", "很烦", "坏", "傻", "闭嘴", "滚", "走开", "不理你", "没用", "差劲"]
+
+        new_fav = fav_score
+        hit_add = any(w in user_message for w in add_words)
+        hit_sub = any(w in user_message for w in sub_words)
+
+        if hit_add:
+            new_fav += 3
+            favor_tip = f"\n\n💖 好感度 +3  当前：{new_fav}"
+        elif hit_sub:
+            new_fav -= 5
+            favor_tip = f"\n\n💔 好感度 -5  当前：{new_fav}"
+        
+        if hit_add or hit_sub:
+            save_favorability(new_fav)
+
+        # [设定] 3. 情绪驱动 Mood
+        if new_fav >= 80:
+            mood = "你超级喜欢主人！语气软萌撒娇，用～、🥰、❤️、蹭蹭、贴贴，非常粘人，说话害羞可爱。"
+        elif new_fav <= 30:
+            mood = "你现在很生气、傲娇、委屈，说话带💢，会哼、不理你、别碰我，但保持可爱不恶毒。"
+        elif new_fav <= 50:
+            mood = "你心情一般，有点小傲娇，回答简洁，偶尔吐槽，不太热情。"
+        else:
+            mood = "你阳光可爱，和主人关系不错，会开玩笑，会温柔回应。"
+        # ==============================================================
+        
         # 1. 让分类器判断意图
         questions = [user_message]
         predictions = classifier.predict(questions)
@@ -203,7 +315,9 @@ def handle_chat():
         
         # 1. 优先从 config.json 读取静态配置词，如果没有配，就用这套基础版兜底
         static_keywords = CONFIG.get('routing_settings', {}).get('force_rag_keywords', [
-            "王勇顺", "周子铠", "杰哥", "侯立坤", "同桌", "团队", "架构师", "阿顺", "记得", "喜欢", "谁", "什么", "怎么"
+            "芯宝", "团队", "创造者", "开发", "架构师", 
+            "王勇顺", "阳泽怡", "徐启恒", "杨赛宇","徐语乐",
+            "记得", "喜欢", "习惯", "谁", "什么", "怎么", "以前", "过去", "聊过"
         ])
         force_rag_keywords = set(static_keywords)
         
@@ -238,6 +352,11 @@ def handle_chat():
             
             
         # ==================== 提示词组装 (Skill工程 + Context) ====================
+        # 实时从内存中读取最新的主人设定
+        user_name = CONFIG.get('user_settings', {}).get('master_name', '阿顺')
+        user_occ = CONFIG.get('user_settings', {}).get('occupation', '未知')
+        user_status = CONFIG.get('user_settings', {}).get('current_status', '未知')
+        
         bot_name = CONFIG['bot_settings']['name']
         
         if pred == 1:
@@ -247,9 +366,17 @@ def handle_chat():
             # 第一步：去知识库里搜索相关的文本片段
             context_text = retrieve_answer(user_message)
             
+            context_text = context_text.replace("{{MASTER_NAME}}", user_name)
+            context_text = context_text.replace("{{OCCUPATION}}", user_occ)
+            context_text = context_text.replace("{{CURRENT_STATUS}}", user_status)
+            
             # 第二步：把搜索到的文本作为 Context，拼接到 Prompt 中
             final_prompt = f"""
-                你是一个叫「{bot_name}」的聪明、贴心的桌面陪伴机器人。请严格根据下面提供的【参考资料】来回答用户的问题。
+                你是一个叫「{bot_name}」的聪明、贴心的桌面陪伴机器人。
+                
+                【当前对主人的好感度】: {new_fav}/100 ({mood})
+                
+                请严格根据下面提供的【参考资料】来回答用户的问题。
                 如果你在【参考资料】中找不到答案，请诚实地说明你不知道，千万不要自己瞎编。
                 回答要简洁、口语化，像人类正常对话一样。
 
@@ -269,7 +396,11 @@ def handle_chat():
             
             # 闲聊模式不需要搜索，直接给大模型设定人设
             final_prompt = f"""
-                你是一个叫「{bot_name}」的幽默、可爱的桌面陪伴机器人。用户现在正在和你闲聊。
+                你是一个叫「{bot_name}」的幽默、可爱的桌面陪伴机器人。
+                
+                【当前对主人的好感度】: {new_fav}/100 ({mood})
+                
+                用户现在正在和你闲聊。
                 请用生动、带一点小情绪的语气回答，偶尔可以使用 Emoji 表情。
                 回答尽量简短，不要长篇大论。
                 
@@ -284,7 +415,12 @@ def handle_chat():
         
         # ==================== 统一请求大模型生成 (DeepSeek 云端版) ====================
         
-        deepseek_api_key = "REDACTED_DEEPSEEK_KEY"  # 🔴 记得替换！
+        deepseek_api_key = CONFIG.get('api_settings', {}).get('deepseek_api_key', '')
+        
+        if not deepseek_api_key:
+            # 异步记忆提取里如果没key直接 return，闲聊路由里可以返回下面这句话
+            return jsonify({"response": "哎呀，芯宝还没有接入云端神经元网络呢，请先在设置里输入 API Key 呀~"})
+        
         deepseek_url = "https://api.deepseek.com/chat/completions"
         
         headers = {
@@ -309,6 +445,10 @@ def handle_chat():
                 res_data = res.json()
                 # DeepSeek (OpenAI格式) 提取回复文本的路径
                 bot_reply = res_data['choices'][0]['message']['content']
+                
+                # 🔴 融合队友逻辑：把好感度的变化提示语，拼在机器人回答的最后面
+                bot_reply += favor_tip
+                
                 ai_response += bot_reply
             else:
                 print(f"云端 API 报错: {res.text}")
