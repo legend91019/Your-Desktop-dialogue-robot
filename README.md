@@ -1,36 +1,49 @@
-# 🤖 芯宝 - 具备长程记忆的离线具身陪伴机器人
+# ✨ 芯宝 (Xinbao) - 具备长程动态记忆的端云协同陪伴机器人
 
-> 厦门大学“大学生创新创业训练计划”项目 (创新训练项目)
-> 
-> **核心理念**：“数据不出户，进化在本地” —— 打造一台完全离线、注重隐私、能陪伴你成长并具有专属记忆的数字生命实体。
+![Python Version](https://img.shields.io/badge/Python-3.9%2B-blue)
+![Framework](https://img.shields.io/badge/Flask-Backend-green)
+![Database](https://img.shields.io/badge/ChromaDB-Vector_Store-orange)
+![LLM](https://img.shields.io/badge/DeepSeek-API-black)
 
-## ✨ 项目简介
+## 📖 项目简介
 
-本项目旨在开发一款部署在侧端的智能语音对话机器人。系统融合了**小语言模型（SLM, Qwen2.5）**与**检索增强生成（RAG）**技术，通过本地向量数据库（ChromaDB）实现用户的长期记忆与个性化画像构建。结合多模态传感器（视觉追踪、电容触摸），机器人能够展现出拟生化的情感演化（基于 PAD 模型）与社交注视动作，为用户提供深度的情绪陪伴。
+本项目旨在开发一款支持边缘设备部署的智能对话陪伴机器人。系统创新性地采用了**“端云协同与隐私隔离”**的异构计算架构：利用云端大模型（DeepSeek V4）保证极高的认知推理能力，同时将检索增强生成（RAG）管道、用户偏好数据（ChromaDB）100% 本地化部署。
 
-## 🛠️ 技术架构图 (Tech Stack)
+结合创新的**“异步长程记忆引擎”**与**“动态好感度情绪系统”**，机器人能够自动沉淀用户画像，展现出拟生化的情感演化，为用户提供有温度、护隐私的深度情绪陪伴。
 
-项目采用“云边解耦、全离线计算”的异构系统架构：
+---
 
-- **🧠 认知与决策大脑 (NVIDIA Jetson / PC 仿真)**
-  - **核心大模型**: Qwen2.5-1.5B/3B (INT4 量化)
-  - **意图分类器**: BERT-based Sequence Classifier (动态路由闲聊与查询指令)
-  - **长程记忆中枢**: ChromaDB + LangChain RAG 管道
-- **👁️ 具身感知模块**
-  - **听觉**: Silero VAD (静音检测) + Sherpa-ONNX (流式语音识别 ASR)
-  - **视觉**: MediaPipe (面部坐标提取) + DeepFace (情感识别)
-  - **触觉**: TTP223 电容式触摸阵列
-- **🦾 行为与表现模块 (ESP32-S3 / Vue 前端仿真)**
-  - **表情渲染**: LVGL 矢量图形库 (拟人化眼神绘制)
-  - **发声**: Piper (离线 TTS 文字转语音)
-  - **动作反馈**: PID 闭环控制算法 + 高精度总线舵机
+## 🛠️ 核心架构演进 (Tech Stack)
 
-## 🚀 快速开始 (Quick Start - PC 仿真阶段)
+本项目已从早期的纯本地量化模型（SLM），升级为更符合工业级应用场景的**端云解耦架构**：
 
-目前项目正处于 PC 软仿真阶段，您可以通过以下步骤在本地跑通“意图仲裁 + RAG + 大模型”的闭环测试：
+- 🧠 **认知与决策大脑 (Cloud-Edge Collaborative)**
+  - **云端算力底座：** DeepSeek API (负责深度语义理解与共情回复)
+  - **本地长程记忆中枢：** ChromaDB 向量数据库 + 本地轻量级 Embedding 模型 (SentenceTransformer)
+  - **双引擎智能路由：** BERT 意图分类器 + 动态启发式唤醒词池 (精准调度闲聊与 RAG 模式)
+
+- 💖 **情感与交互引擎 (Emotion & Interaction)**
+  - **多维动态 Prompt 注入：** 根据实时交互动态替换系统级 Prompt，实现世界观“思想钢印”。
+  - **好感度奖惩系统：** 启发式规则匹配，动态调整机器人情绪阈值（傲娇/软萌/平静）。
+
+- 🖥️ **可视化交互终端 (Frontend)**
+  - **赛博朋克风 Web UI：** 零依赖的 HTML/JS/CSS，内置系统配置面板，支持动态加载 API Key 与初始化主人档案。
+
+- 🔌 **硬件部署规划 (Target Hardware)**
+  - 主控平台：Orange Pi 5 / Raspberry Pi 5 等边缘 Linux 单板计算机。
+  - 后续规划外设：麦克风阵列 (ASR)、扬声器 (TTS)。
+
+---
+
+## 🚀 快速开始 (Quick Start - PC 仿真与联调阶段)
+
+目前项目已跑通全链路软件闭环，您可以通过以下步骤在本地启动“意图仲裁 + RAG + 大模型”的完整测试：
 
 ### 1. 环境准备
-- 安装 Python 3.9+ 和 Node.js
-- 安装 [Ollama](https://ollama.com/)，并在终端运行以下命令拉取并启动本地大模型：
-  ```bash
-  ollama run qwen2.5:3b
+- 安装 Python 3.9 或更高版本。
+- 建议使用 `conda` 或 `venv` 创建虚拟环境。
+
+### 2. 安装核心依赖
+在项目根目录下，执行以下命令安装所需的 Python 包：
+```bash
+pip install flask flask-cors requests chromadb sentence-transformers scikit-learn
