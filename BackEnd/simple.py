@@ -5,13 +5,15 @@ from flask_cors import CORS # 如果运行报错，请在终端执行 pip instal
 project_root = str(Path(__file__).parent.parent.absolute())
 sys.path.append(project_root)
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
 import os
 import datetime
+
 from utils.Classifier.classifier import TextClassifier
 from utils.Classifier.data_utils import DataAugmenter
 from utils.Retriever.retriever import create_rag_retriever
+from tools.time_tool import get_current_time_str
 
 import threading
 import hashlib
@@ -121,7 +123,8 @@ def extract_and_save_memory(user_msg):
     
     if not deepseek_api_key:
         # 异步记忆提取里如果没key直接 return，闲聊路由里可以返回下面这句话
-        return jsonify({"response": "哎呀，芯宝还没有接入云端神经元网络呢，请先在设置里输入 API Key 呀~"})
+        print("哎呀，芯宝还没有接入云端神经元网络呢，请先在设置里输入 API Key 呀~")
+        return 
     
     deepseek_url = "https://api.deepseek.com/chat/completions"
     
@@ -164,6 +167,8 @@ def extract_and_save_memory(user_msg):
             emb = embed_model.encode([memory_text], normalize_embeddings=True).tolist()[0]
             mem_id = hashlib.md5(memory_text.encode('utf-8')).hexdigest()[:12]
             
+            memory_time = get_current_time_str()
+            
             # 悄悄写入 ChromaDB 硬盘
             collection.upsert(
                 ids=[mem_id],
@@ -172,6 +177,7 @@ def extract_and_save_memory(user_msg):
                 metadatas=[{
                     "type": "user_preference", # 🔴 这是一个全新的元数据标签：用户偏好
                     "source": "dynamic_memory", 
+                    "timestamp": memory_time, #长期记忆，加入时间观念
                     "title": "主人动态画像",
                     "chunk_index": 9999
                 }]
@@ -359,6 +365,8 @@ def handle_chat():
         
         bot_name = CONFIG['bot_settings']['name']
         
+        current_time_str = get_current_time_str()
+        
         if pred == 1:
             # 【分支A：RAG 增强模式】
             ai_response += f"[知识库增强生成模式]\n"
@@ -370,18 +378,68 @@ def handle_chat():
             context_text = context_text.replace("{{OCCUPATION}}", user_occ)
             context_text = context_text.replace("{{CURRENT_STATUS}}", user_status)
             
+            
+            # 🔴 2. 动态检索 ChromaDB，获取带时间戳的记忆（加入置信度过滤）
+
+            # 【获取全局单例】从大厅拿到加载好的向量化模型和 ChromaDB 数据库句柄，防止内存爆炸。
+            global embed_model, collection
+
+            # 【问题降维】把用户刚刚说的话（比如：“我上周吃了啥？”），转换成一个几百维的浮点数数学向量（Embedding）。
+            query_emb = embed_model.encode([user_message], normalize_embeddings=True).tolist()[0]
+
+            # 【空间检索】带着这个数学向量，去 ChromaDB 里的多维空间寻找离它“最近（最相似）”的 3 条记忆。
+            results = collection.query(query_embeddings=[query_emb], n_results=3)
+
+            dynamic_context = ""
+
+            # 【防御性非空校验】确保数据库真的返回了距离分数，防止空指针报错。
+            if results['distances'] and len(results['distances'][0]) > 0:
+                for i in range(len(results['distances'][0])):
+        
+                    # 【核心：置信度评估】获取这条记忆和当前问题的“空间距离 (Distance)”。
+                    # 在向量库里，距离越小 = 语义越接近。距离越大 = 毫不相干。
+                    dist = results['distances'][0][i]
+        
+                    # 【阈值拦截器】这是防幻觉的关键！
+                    # 如果距离大于 1.2，说明数据库里根本没有相关的记忆。它只是“矮子里拔将军”硬凑了 3 条垃圾数据出来。
+                    # 所以我们设定 1.2 为及格线，不及格的记忆直接抛弃，不喂给大模型！
+                    if dist < 1.2:  
+            
+                        # 【提取内容】只有及格的优质记忆，才把具体的文字和元数据提取出来
+                        doc = results['documents'][0][i]
+                        meta = results['metadatas'][0][i]
+            
+                        # 【时序对齐】把提取时盖上的“时间戳钢印”取出来。
+                        mem_time = meta.get('timestamp', '未知时间')
+            
+                        # 【记忆包装】把纯文本包装成大模型极易理解的时序日志格式，比如：“[2026-05-16] 主人今天吃了苹果”
+                        dynamic_context += f"[{mem_time}] {doc}\n"
+
+            # 【终极融炉】
+            # static_context：提供固定的人设、团队介绍、世界观。
+            # dynamic_context：提供用户刚刚被筛选出来的、极其精确的、带时间的私人动态记忆。
+            # 两者合并，组成无懈可击的最强 Prompt 上下文。
+            final_context_text = f"【底层设定资料】:\n{context_text}\n\n【主人动态时序记忆】:\n{dynamic_context}"
+            
+            
             # 第二步：把搜索到的文本作为 Context，拼接到 Prompt 中
             final_prompt = f"""
                 你是一个叫「{bot_name}」的聪明、贴心的桌面陪伴机器人。
                 
                 【当前对主人的好感度】: {new_fav}/100 ({mood})
                 
-                请严格根据下面提供的【参考资料】来回答用户的问题。
-                如果你在【参考资料】中找不到答案，请诚实地说明你不知道，千万不要自己瞎编。
-                回答要简洁、口语化，像人类正常对话一样。
+                【核心时间锚点】（极其重要）：
+                现在的真实时间是：{current_time_str}。请以此为基准，理解用户说的“今天、昨天、上周”等时间概念。
+                
+                下面提供的【参考资料】中包含了静态设定以及带有[时间戳]的动态记忆。
 
+                【你的回答法则】（非常重要）：
+                1. 时序推理：如果用户问及历史行为，请对比当前时间和记忆的时间戳，进行正确的逻辑推导。
+                2. 溯源引用：只要你的回答使用到了【主人动态时序记忆】中的内容，你必须在相关句子的末尾加上类似 ^[来源：YYYY-MM-DD] 的脚注标明出处。
+                3. 私人问题兜底：如果主人问他自己的事，但在【参考资料】找不到，你可以可爱地撒娇说如“芯宝暂时还没记住这个呢QwQ”的句子，表明你不知道。
+                4. 通用世界知识：如果主人问历史、文学（如《雾都孤儿》）、科学等通用常识，请无视资料限制，直接调动你自己的渊博知识库回答！
                 【参考资料】:
-                {context_text}
+                {final_context_text}
                 
                 【近期对话历史】:
                 {history_text}
@@ -399,6 +457,9 @@ def handle_chat():
                 你是一个叫「{bot_name}」的幽默、可爱的桌面陪伴机器人。
                 
                 【当前对主人的好感度】: {new_fav}/100 ({mood})
+                
+                【核心时间锚点】：
+                现在的真实时间是：{current_time_str}。如果聊天中涉及时间，请以此为基准。
                 
                 用户现在正在和你闲聊。
                 请用生动、带一点小情绪的语气回答，偶尔可以使用 Emoji 表情。
@@ -419,7 +480,8 @@ def handle_chat():
         
         if not deepseek_api_key:
             # 异步记忆提取里如果没key直接 return，闲聊路由里可以返回下面这句话
-            return jsonify({"response": "哎呀，芯宝还没有接入云端神经元网络呢，请先在设置里输入 API Key 呀~"})
+            
+            return jsonify({"response":"哎呀，芯宝还没有接入云端神经元网络呢，请先在设置里输入 API Key 呀~"})
         
         deepseek_url = "https://api.deepseek.com/chat/completions"
         
@@ -433,52 +495,69 @@ def handle_chat():
             "messages": [
                 {"role": "user", "content": final_prompt} # 将你精心组装的 Prompt 发送过去
             ],
-            "stream": False 
+            "stream": True 
         }
         
-        try:
-            print("🚀 正在呼叫云端超级大脑 (DeepSeek)...")
-            res = requests.post(deepseek_url, headers=headers, json=payload, timeout=30)
+        # 🔴 修改点：创建一个生成器函数，用于源源不断地向前端吐数据
+        def generate_stream():
+            nonlocal ai_response # 允许我们在内部修改外部的 ai_response 变量
             
-            # 检查 HTTP 状态码，防止 API 欠费或报错没被捕获
-            if res.status_code == 200:
-                res_data = res.json()
-                # DeepSeek (OpenAI格式) 提取回复文本的路径
-                bot_reply = res_data['choices'][0]['message']['content']
+            try:
+                print("🚀 正在呼叫云端超级大脑 (DeepSeek 流式模式)...")
+                # 🔴 修改点：requests.post 必须加上 stream=True 参数
+                res = requests.post(deepseek_url, headers=headers, json=payload, stream=True, timeout=30)
                 
-                # 🔴 融合队友逻辑：把好感度的变化提示语，拼在机器人回答的最后面
-                bot_reply += favor_tip
+                bot_reply = "" # 临时存放这次大模型生成的纯净回复
                 
-                ai_response += bot_reply
-            else:
-                print(f"云端 API 报错: {res.text}")
-                ai_response += "芯宝的大脑服务器开小差了，稍后再试哦 QwQ"
+                if res.status_code == 200:
+                    # 🔴 核心：逐行解析流式数据块 (Server-Sent Events 格式)
+                    for line in res.iter_lines():
+                        if line:
+                            line = line.decode('utf-8')
+                            if line.startswith('data: '):
+                                data_str = line[6:]
+                                if data_str.strip() == '[DONE]': # 官方结束标志
+                                    break
+                                
+                                try:
+                                    chunk_data = json.loads(data_str)
+                                    if 'choices' in chunk_data and len(chunk_data['choices']) > 0:
+                                        # 注意：流式返回的字段叫 delta，不是 message
+                                        content = chunk_data['choices'][0].get('delta', {}).get('content', '')
+                                        if content:
+                                            bot_reply += content
+                                            # 把这一个字打包成 JSON 字符串，吐给前端
+                                            yield f"data: {json.dumps({'chunk': content})}\n\n"
+                                except json.JSONDecodeError:
+                                    pass
+                    
+                    # 流输出完毕后，拼接好感度提示
+                    if favor_tip:
+                        bot_reply += favor_tip
+                        yield f"data: {json.dumps({'chunk': favor_tip})}\n\n"
+                    
+                    ai_response += bot_reply
+                    
+                    # 发送结束标记给前端
+                    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    yield f"data: {json.dumps({'done': True, 'timestamp': timestamp})}\n\n"
+                    
+                    # 🔴 修改点：数据全部推完后，再记录历史并触发记忆提取
+                    chat_history.append({"type": "User", "content": user_message, "timestamp": timestamp})
+                    chat_history.append({"type": "Assistant", "content": ai_response, "timestamp": timestamp})
+                    threading.Thread(target=extract_and_save_memory, args=(user_message,)).start()
+
+                else:
+                    print(f"云端 API 报错: {res.text}")
+                    yield f"data: {json.dumps({'chunk': '芯宝的大脑服务器开小差了，稍后再试哦 QwQ', 'done': True})}\n\n"
             
-        except Exception as e:
-            ai_response += f"连接云端大脑失败，检查一下网络哦。报错信息: {e}"
-            
-        # 记录对话历史 (后面的代码保持原样不要动)
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        chat_history.append({
-            "type": "User",
-            "content": user_message,
-            "timestamp": timestamp
-        })
-        chat_history.append({
-            "type": "Assistant",
-            "content": ai_response,
-            "timestamp": timestamp
-        })
-        
-        # ==================== 触发异步记忆提取 ====================
-        # 把用户刚说的话，丢给后台的记忆提取器慢慢分析
-        threading.Thread(target=extract_and_save_memory, args=(user_message,)).start()
-        # ==========================================================
-        
-        return jsonify({
-            "response": ai_response,
-            "timestamp": timestamp
-        })
+            except Exception as e:
+                yield f"data: {json.dumps({'chunk': f'连接云端大脑失败，检查一下网络哦。报错: {e}', 'done': True})}\n\n"
+
+        # 🔴 修改点：不再返回 jsonify，而是返回一个流式 Response 对象
+        return Response(stream_with_context(generate_stream()), mimetype='text/event-stream')
+
+    # 最外层的 except (捕捉整个 handle_chat 的异常) 保持不变
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -537,4 +616,10 @@ def clear_history():
 if __name__ == '__main__':
     classifier, retrieve_answer = init_model()
 
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # 🔴 引入生产级 WSGI 服务器
+    from waitress import serve
+    print("🚀 芯宝后端已启动！(基于 Waitress 生产级容器运行中...)")
+    print("🌐 监听地址: http://0.0.0.0:5000")
+    
+    # 替代原本脆弱的 app.run()，开启 4 个并发线程处理前端请求
+    serve(app, host='0.0.0.0', port=5000, threads=4)

@@ -2,14 +2,10 @@ import os
 import sys
 from pathlib import Path
 
-root = str(Path(__file__).parent.absolute())
-#print(root)
-sys.path.append(root)
+print(os.path.abspath(__file__))
+print(Path(__file__).absolute())
 
-#print(sys.path)
+print(Path(__file__).parent.parent.absolute())
+print(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-print(os.path.join(os.path.dirname(__file__)))
-print(os.path.join(os.path.dirname(__file__),'.'))
-print(os.path.join(os.path.dirname(__file__),'..'))
-print(os.path.join(os.path.dirname(__file__), '..', 'config.json'))
-print(__file__)
+print(__name__)

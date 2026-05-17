@@ -493,13 +493,29 @@
       chatBox.scrollTop = chatBox.scrollHeight; // 自动滚到底部
     }
 
-    // 2. 修复后的发送逻辑
+    // 2. 🔴 终极重构版：带防抖锁与防截断缓冲池的工业级流式解析
     async function sendMessage() {
-      const text = input.value.trim(); // 🔴 修复了队友写错的变量名
+      // 防抖锁：如果正在打字，直接拒绝新的发送请求
+      if (isTyping) return;
+      
+      const text = input.value.trim();
       if (!text) return;
+
+      // 锁定输入状态
+      isTyping = true;
+      sendBtn.disabled = true;
 
       appendMessage('user', text);
       input.value = '';
+
+      // 创建机器人回复气泡
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'msg-bubble robot-msg';
+      msgDiv.innerHTML = `<span class="msg-prefix">> XINBAO:</span><span class="msg-content typing-cursor"></span>`;
+      chatBox.appendChild(msgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      
+      const contentSpan = msgDiv.querySelector('.msg-content');
 
       try {
           const response = await fetch('http://127.0.0.1:5000/api/chat', {
@@ -508,16 +524,68 @@
               body: JSON.stringify({ message: text }) 
           });
 
-          const data = await response.json();
+          // 处理没写 Key 等普通错误
+          if (!response.ok || response.headers.get('content-type').includes('application/json')) {
+              const errData = await response.json();
+              contentSpan.innerHTML = errData.response || errData.error || "请求失败";
+              return; // 直接跳到 finally
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let done = false;
           
-          if (data.response) {
-              appendMessage('bot', data.response);
-          } else {
-              appendMessage('bot', "芯宝听不懂你在说什么呢...QwQ");
+          // 🔴 核心修复 1：声明一个缓冲池，用于存放被网络切断的“半句话”
+          let buffer = '';
+
+          while (!done) {
+              const { value, done: readerDone } = await reader.read();
+              if (value) {
+                  // 把新收到的碎片拼接到缓冲池后面
+                  buffer += decoder.decode(value, { stream: true });
+                  
+                  // 按换行符切分
+                  const lines = buffer.split('\n');
+                  
+                  // 🔴 核心修复 2：把最后一行（极有可能是不完整的半句话）踢出数组，留在 buffer 里等下次拼接
+                  buffer = lines.pop(); 
+                  
+                  for (let line of lines) {
+                      if (line.trim() === '') continue; // 跳过空行
+                      
+                      if (line.startsWith('data: ')) {
+                          const dataStr = line.replace('data: ', '');
+                          try {
+                              const dataObj = JSON.parse(dataStr);
+                              
+                              if (dataObj.chunk) {
+                                  contentSpan.innerHTML += dataObj.chunk.replace(/\n/g, '<br>');
+                                  chatBox.scrollTop = chatBox.scrollHeight;
+                              }
+                              
+                              if (dataObj.done) {
+                                  done = true;
+                              }
+                          } catch(e) {
+                              // 现在的脏数据已经被 buffer 过滤了，基本不会进这里
+                              console.warn("解析脏数据跳过: ", dataStr);
+                          }
+                      }
+                  }
+              }
+              if (readerDone) {
+                  done = true;
+              }
           }
       } catch (error) {
           console.error('Error:', error);
-          appendMessage('bot', "糟糕，芯宝跟大脑失去联系了，快检查下后端开没开呀！");
+          contentSpan.innerHTML = "糟糕，芯宝跟大脑失去联系了，快检查下后端开没开呀！";
+      } finally {
+          // 🔴 核心修复 3：无论成功还是失败，最后一定要解锁，允许用户发下一句话
+          contentSpan.classList.remove('typing-cursor');
+          isTyping = false;
+          sendBtn.disabled = false;
+          input.focus();
       }
     }
 
