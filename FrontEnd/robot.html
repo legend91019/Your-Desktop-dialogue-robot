@@ -168,7 +168,9 @@
       opacity: 0; transform: scale(0.8) translateY(20px);
       animation: bubble-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) 1s forwards;
       z-index: 20; backdrop-filter: blur(5px);
-      border-radius: 15px; /* 增加圆角 */
+      border-radius: 15px; 
+      /* 👇 新增：平滑过渡效果 */
+      transition: all 0.3s ease; 
     }
     .robot-greeting-bubble::after {
       content: ''; position: absolute; bottom: 12px; left: -10px; width: 0; height: 0;
@@ -176,42 +178,56 @@
     }
     @keyframes bubble-in { to { opacity: 1; transform: scale(1) translateY(0); } }
 
-    /* 机器人构造 - 可爱化调整 */
+    /* 机器人构造 */
     .holo-base-ring { position: absolute; bottom: -75px; width: 220px; height: 80px; border: 1px solid rgba(102, 248, 255, 0.2); border-radius: 50%; transform: rotateX(75deg); animation: spin-reverse 10s linear infinite; pointer-events: none; }
     .holo-base { position: absolute; bottom: -60px; width: 180px; height: 60px; border: 2px dashed rgba(102, 248, 255, 0.6); border-radius: 50%; transform: rotateX(75deg); box-shadow: 0 0 30px rgba(102, 248, 255, 0.2), inset 0 0 20px rgba(102, 248, 255, 0.3); animation: spin 15s linear infinite; pointer-events: none; }
     
     .robot-ears { position: absolute; top: 40px; width: 240px; display: flex; justify-content: space-between; z-index: 1; }
-    /* 耳朵变圆润，像小触角 */
     .ear { width: 25px; height: 60px; background: #111; border: 2px solid var(--neon-pink); border-radius: 15px; box-shadow: 0 0 15px rgba(255, 179, 217, 0.4); }
     
-    /* 脑袋变圆，边框更柔和 */
-    .robot-head { position: relative; width: 200px; height: 160px; background: linear-gradient(135deg, #1a1e2e 0%, #05070f 100%); border: 3px solid var(--neon-cyan); border-radius: 40px; box-shadow: 0 15px 35px rgba(0,0,0,0.8), inset 0 0 25px rgba(102,248,255,0.15); display: flex; justify-content: center; align-items: center; z-index: 2; overflow: hidden; }
-    /* 脑袋扫描线 - 降低透明度 */
+    /* 👇 新增 transition */
+    .robot-head { position: relative; width: 200px; height: 160px; background: linear-gradient(135deg, #1a1e2e 0%, #05070f 100%); border: 3px solid var(--neon-cyan); border-radius: 40px; box-shadow: 0 15px 35px rgba(0,0,0,0.8), inset 0 0 25px rgba(102,248,255,0.15); display: flex; justify-content: center; align-items: center; z-index: 2; overflow: hidden; transition: border-color 0.3s; }
     .head-scanner { position: absolute; width: 100%; height: 2px; background: var(--neon-cyan); opacity: 0.3; animation: head-scan 4s ease-in-out infinite alternate; }
     @keyframes head-scan { 0% { top: 15%; } 100% { top: 85%; } }
     
     .head-led { position: absolute; top: 12px; width: 70px; height: 5px; background: var(--neon-pink); border-radius: 3px; box-shadow: 0 0 15px var(--neon-pink); animation: pulse-led 2s infinite; }
     .robot-screen { width: 160px; height: 100px; background: #01040a; border-radius: 15px; border: 1px solid rgba(102, 248, 255, 0.2); box-shadow: inset 0 0 30px rgba(102, 248, 255, 0.05); display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
     
-    /* 眼睛：更大、更圆、更柔和 */
+    /* 👇 新增 transition，移除强制的 infinite 动画（交由状态类控制） */
     .eyes-container { display: flex; gap: 40px; margin-top: -10px; }
-    .eye { width: 28px; height: 40px; background: var(--neon-cyan); border-radius: 15px; box-shadow: 0 0 20px var(--neon-cyan); animation: blink-eye 5s infinite; }
+    .eye { width: 28px; height: 40px; background: var(--neon-cyan); border-radius: 15px; box-shadow: 0 0 20px var(--neon-cyan); transition: all 0.2s ease; }
     
-    /* 腮红：更明显、更害羞 */
+    /* 👇 新增 transition */
     .blush-container { display: flex; gap: 80px; position: absolute; top: 60px; }
-    .blush { width: 25px; height: 10px; background: var(--neon-pink); border-radius: 15px; opacity: 0.8; box-shadow: 0 0 15px var(--neon-pink); }
+    .blush { width: 25px; height: 10px; background: var(--neon-pink); border-radius: 15px; opacity: 0.8; box-shadow: 0 0 15px var(--neon-pink); transition: all 0.2s ease; }
+
+    /* ================= 👇 这是核心新增：各种情绪状态的样式 ================= */
+    /* 害羞状态 */
+    .advanced-robot.shy .blush { transform: scale(1.5); background: #ff2a8d; box-shadow: 0 0 25px #ff2a8d; opacity: 1; }
+    .advanced-robot.shy .eye { height: 10px; margin-top: 15px; }
+    .advanced-robot.shy .robot-greeting-bubble { border-color: var(--neon-pink); box-shadow: 0 0 25px rgba(255, 179, 217, 0.4); }
+
+    /* 好感上升：开心的上扬弯弯眼 */
+    .advanced-robot.happy .eye { height: 16px; border-radius: 15px 15px 0 0; border-bottom: 6px solid var(--neon-cyan); background: transparent; box-shadow: 0 -5px 10px var(--neon-cyan); margin-top: 12px; }
+    .advanced-robot.happy .blush { transform: scale(1.3); opacity: 1; }
+
+    /* 好感下降：失落沮丧的下垂平眼 */
+    .advanced-robot.sad .eye { height: 14px; border-radius: 0 0 15px 15px; border-top: 5px solid #4a5a6a; background: rgba(102, 248, 255, 0.2); box-shadow: none; margin-top: 10px; }
+    .advanced-robot.sad .blush { opacity: 0.1; }
+    .advanced-robot.sad .robot-head { border-color: #4a5a6a; }
+    /* ====================================================================== */
     
-    /* 身体变圆，像一个小花瓶 */
     .robot-body { width: 70px; height: 50px; background: #0a0a0a; border: 2px solid var(--neon-cyan); border-top: none; border-radius: 0 0 30px 30px; margin-top: -5px; z-index: 1; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 -10px 20px rgba(102, 248, 255, 0.1); }
     .core { width: 16px; height: 16px; background: var(--neon-pink); border-radius: 50%; box-shadow: 0 0 15px var(--neon-pink); animation: pulse-core 1s ease-in-out infinite; }
 
-    /* 动画 */
     @keyframes float { 0%, 100% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-15px) rotate(2deg); } }
     @keyframes spin { 100% { transform: rotateX(75deg) rotateZ(360deg); } }
     @keyframes spin-reverse { 100% { transform: rotateX(75deg) rotateZ(-360deg); } }
     @keyframes pulse-led { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
     @keyframes pulse-core { 0%, 100% { transform: scale(0.8); opacity: 0.5; } 50% { transform: scale(1.2); opacity: 1; } }
-    /* 眨眼：变得更慢、更温柔 */
+    
+    /* 👇 修改：仅当没有任何情感类激活时，才执行默认眨眼动画，避免样式冲突 */
+    .advanced-robot:not(.shy):not(.happy):not(.sad) .eye { animation: blink-eye 5s infinite; }
     @keyframes blink-eye { 0%, 80%, 90%, 100% { transform: scaleY(1); } 85% { transform: scaleY(0.1); } }
 
     /* ================= 底部高科技聊天区 ================= */
@@ -362,8 +378,8 @@
       </header>
 
       <main class="center-stage">
-        <div class="advanced-robot">
-          <div class="robot-greeting-bubble">你好呀！我是你的小助手芯宝~ (^-^)/</div>
+        <div class="advanced-robot" onclick="triggerRobotShy()" style="cursor: pointer;">
+          <div class="robot-greeting-bubble" id="robotBubble">你好呀！我是你的小助手芯宝~ (^-^)/</div>
           
           <div class="holo-base-ring"></div>
           <div class="holo-base"></div>
@@ -390,9 +406,14 @@
         </div>
         
         <div class="input-wrapper">
+          <button id="micBtn" onclick="toggleVoice()" style="padding: 0 15px; border-radius: 8px 0 0 8px; border-right: none;" title="按住说话">🎤</button>
+          
           <input type="text" placeholder="[ INPUT COMMAND... ]" id="userInput" autocomplete="off">
-          <button id="sendBtn" onclick="sendMessage()">SEND</button>
+          
+          <button id="sendBtn" onclick="sendMessage()" style="border-radius: 0 8px 8px 0;">SEND</button>
         </div>
+        
+        <audio id="robotVoicePlayer" style="display: none;"></audio>
       </footer>
     </div>
 
@@ -493,13 +514,135 @@
       chatBox.scrollTop = chatBox.scrollHeight; // 自动滚到底部
     }
 
+    // ==================== 语音交互模块 ====================
+    const micBtn = document.getElementById('micBtn');
+    const voicePlayer = document.getElementById('robotVoicePlayer');
+    let recognition;
+    let isRecording = false;
+
+    // 检查浏览器是否支持原生语音识别
+    if ('webkitSpeechRecognition' in window) {
+        recognition = new webkitSpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true; // 开启实时预览
+        recognition.lang = 'zh-CN'; // 设定为中文
+
+        recognition.onstart = function() {
+            isRecording = true;
+            micBtn.style.background = "var(--neon-pink)"; // 录音时按钮变粉色
+            micBtn.style.color = "#000";
+            input.placeholder = "[ 正在聆听主人说话... ]";
+        };
+
+        recognition.onresult = function(event) {
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                } else {
+                    input.value = event.results[i][0].transcript; // 实时上屏预览
+                }
+            }
+            if (finalTranscript) {
+                input.value = finalTranscript;
+                toggleVoice(); // 自动停止录音
+                setTimeout(sendMessage, 500); // 识别完自动发送！
+            }
+        };
+
+        recognition.onerror = function(event) {
+            console.error("语音识别出错:", event.error);
+            toggleVoice();
+            input.placeholder = "[ 语音识别失败，请打字输入 ]";
+        };
+        
+        recognition.onend = function() {
+            if(isRecording) toggleVoice();
+        };
+    } else {
+        micBtn.style.display = 'none'; // 如果浏览器不支持，就隐藏按钮
+        console.warn("当前浏览器不支持 Web Speech API");
+    }
+
+    // 🔴 核心功能：处理好感度引发的实时动态表情
+    let emotionTimer = null;
+    function updateRobotExpression(changeType, currentScore) {
+      const robot = document.querySelector('.advanced-robot');
+      const bubble = document.getElementById('robotBubble');
+      
+      // 清理历史状态与计时器防止冲突
+      robot.classList.remove('happy', 'sad', 'shy');
+      if (emotionTimer) clearTimeout(emotionTimer);
+
+      if (changeType === 'up') {
+        robot.classList.add('happy');
+        bubble.innerText = `好开心！好感度提升到了 ${currentScore} 点！(๑•̀ㅂ•́)و✧`;
+      } else if (changeType === 'down') {
+        robot.classList.add('sad');
+        bubble.innerText = `呜呜...芯宝让主人不高兴了吗... [好感度: ${currentScore}] (´·ω·\`)`;
+      }
+
+      // 4.5秒后表情回归平静常态
+      emotionTimer = setTimeout(() => {
+        robot.classList.remove('happy', 'sad');
+        bubble.innerText = "你好呀！我是你的小助手芯宝~ (^-^)/";
+      }, 4500);
+    }
+
+    // 点击机器人触发害羞互动的 JS 函数
+    let shyTimer = null;
+    function triggerRobotShy() {
+      const robot = document.querySelector('.advanced-robot');
+      const bubble = document.getElementById('robotBubble');
+      
+      // 如果当前正处于好感升降的高级表情中，不覆盖当前情绪
+      if (robot.classList.contains('happy') || robot.classList.contains('sad')) return;
+
+      const configName = document.getElementById('cfg-name').value.trim() || "主人";
+
+      robot.classList.add('shy');
+      bubble.innerText = `${configName}~ 芯宝在呢！(///▽///)`;
+
+      if (shyTimer) clearTimeout(shyTimer);
+
+      shyTimer = setTimeout(() => {
+        robot.classList.remove('shy');
+        bubble.innerText = "你好呀！我是你的小助手芯宝~ (^-^)/";
+      }, 2500);
+    }
+
+    // 切换录音状态
+    function toggleVoice() {
+        if (!recognition) return;
+        if (isRecording) {
+            recognition.stop();
+            isRecording = false;
+            micBtn.style.background = "rgba(102, 248, 255, 0.05)";
+            micBtn.style.color = "var(--neon-cyan)";
+            input.placeholder = "[ INPUT COMMAND... ]";
+        } else {
+            recognition.start();
+        }
+    }
+
     // 2. 🔴 终极重构版：带防抖锁与防截断缓冲池的工业级流式解析
     async function sendMessage() {
+
+
       // 防抖锁：如果正在打字，直接拒绝新的发送请求
       if (isTyping) return;
       
       const text = input.value.trim();
       if (!text) return;
+
+      // ==================== 🔴 核心修复：静音解锁术 ====================
+      const voicePlayer = document.getElementById('robotVoicePlayer');
+      voicePlayer.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+
+      // 👇 改为静音播放，去掉原来的 pause()，防止打断后续真实语音
+      voicePlayer.volume = 0; 
+      voicePlayer.play().catch(e => console.warn("解锁被拦截，但不影响后续", e));
+      // =================================================================
 
       // 锁定输入状态
       isTyping = true;
@@ -557,14 +700,31 @@
                           const dataStr = line.replace('data: ', '');
                           try {
                               const dataObj = JSON.parse(dataStr);
+
+                              // 🔴 同学新增核心检测点：如果流里附带好感度信号，立刻触发表情渲染
+                              if (dataObj.change && dataObj.change !== 'none') {
+                                  updateRobotExpression(dataObj.change, dataObj.favorability);
+                              }
                               
                               if (dataObj.chunk) {
                                   contentSpan.innerHTML += dataObj.chunk.replace(/\n/g, '<br>');
                                   chatBox.scrollTop = chatBox.scrollHeight;
                               }
                               
+                              // 收到结束信号
+                              // 收到结束信号
                               if (dataObj.done) {
-                                  done = true;
+                                done = true;
+                                if (dataObj.audio_url) {
+                                  const player = document.getElementById('robotVoicePlayer');
+                                  player.src = 'http://127.0.0.1:5000' + dataObj.audio_url; 
+        
+                                  // 👇 恢复正常音量
+                                  player.volume = 1; 
+                                  player.play().catch(err => {
+                                    console.error("播放最终还是被拦截:", err);
+                                  });
+                                }
                               }
                           } catch(e) {
                               // 现在的脏数据已经被 buffer 过滤了，基本不会进这里

@@ -4,8 +4,6 @@
         "description": "一个温顺可爱的桌面陪伴机器人"
     },
     "model_settings": {
-        "ollama_model_id": "qwen3.5:4b",
-        "ollama_url": "http://localhost:11434/api/generate",
         "classifier_path": "D:\\Downloads\\bert-base-chinese-finetuned",
         "embedding_model": "BAAI/bge-small-zh-v1.5"
     },
@@ -40,9 +38,9 @@
         ]
     },
     "user_settings": {
-        "master_name": "",
-        "occupation": "",
-        "current_status": ""
+        "master_name": "阿顺",
+        "occupation": "计算机专业大学生",
+        "current_status": "最近压力比较大，需要多鼓励"
     },
     "api_settings": {
         "deepseek_api_key": ""

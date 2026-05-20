@@ -5,7 +5,14 @@ from flask_cors import CORS # 如果运行报错，请在终端执行 pip instal
 project_root = str(Path(__file__).parent.parent.absolute())
 sys.path.append(project_root)
 
-from flask import Flask, request, jsonify, Response, stream_with_context
+import asyncio
+import edge_tts
+import re
+
+import glob
+import time
+
+from flask import Flask, request, jsonify, Response, stream_with_context, send_from_directory
 from flask_cors import CORS
 import os
 import datetime
@@ -26,6 +33,12 @@ import json
 # ==================== 队友新增：好感度持久化逻辑 ====================
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 FAVORABILITY_FILE = os.path.join(BACKEND_DIR, "favorability.json")
+
+@app.route('/static/<path:filename>')
+def serve_audio(filename):
+    # 允许前端访问根目录下的 static 文件夹里的音频
+    static_dir = os.path.join(project_root, "static")
+    return send_from_directory(static_dir, filename)
 
 def get_favorability():
     """获取当前好感度分数"""
@@ -85,6 +98,10 @@ CORS(app, resources={
         "methods": ["GET", "POST", "OPTIONS", "DELETE"],
         "allow_headers": ["Content-Type"],
         "supports_credentials": True,  # 关键！允许携带 Cookie
+    },
+    # 🔴 新增：允许前端跨域访问 static 文件夹里的音频
+    r"/static/*": {
+        "origins": "*"
     }
 })
 
@@ -198,11 +215,14 @@ def extract_and_save_memory(user_msg):
 # 🔴 新增：在函数外面声明两个全局变量，当作“公共大厅”
 embed_model = None
 collection = None
+reranker_model = None
 
 def init_model():
-    global embed_model, collection
+    global embed_model, collection, reranker_model
+    current_script_path = os.path.abspath(__file__)
+    project_root = os.path.dirname(os.path.dirname(current_script_path))
     # 配置参数
-    model_path = CONFIG['model_settings']['classifier_path']
+    model_path = os.path.join(project_root,"models","classifier")
     
     # 初始化分类器
     classifier = TextClassifier(model_path, num_labels=2)
@@ -213,8 +233,7 @@ def init_model():
     else:
         print("✅ 交通警察 (分类器权重) 加载成功！")
 
-    current_script_path = os.path.abspath(__file__)
-    project_root = os.path.dirname(os.path.dirname(current_script_path))
+    
     md_file = os.path.join(project_root, "knowledge.md")
     
     retrieve_answer = create_rag_retriever(md_file)
@@ -222,16 +241,23 @@ def init_model():
     # ==================== 🔴 以下是新增的修改 ====================
     # 3. 启动时，一次性把“几百兆的向量模型”和“数据库连接”加载好
     import chromadb
-    from sentence_transformers import SentenceTransformer
+    from sentence_transformers import SentenceTransformer, CrossEncoder
     print("⏳ 正在启动后台记忆处理引擎 (只加载一次，防止内存爆炸)...")
     
     db_dir = os.path.join(project_root, CONFIG['path_settings']['chroma_db_dir'])
     client = chromadb.PersistentClient(path=db_dir)
     collection = client.get_or_create_collection(name="qbit_memory")
-    embed_model = SentenceTransformer(CONFIG['model_settings']['embedding_model'])
+    embed_model = SentenceTransformer(os.path.join(project_root,"models","embedding"))
     
     print("✅ 后台记忆处理引擎已稳固挂载！")
     # ==============================================================
+    
+    # ==================== 🔴 新增：挂载 BGE 精排模型 ====================
+    print("⏳ 正在挂载交叉注意力精排引擎 (Reranker)...")
+    # 第一次运行会自动从 HuggingFace 极速下载，大概 1GB
+    reranker_model = CrossEncoder(os.path.join(project_root,"models","reranker")) 
+    print("✅ 后台记忆与精排引擎已稳固挂载！")
+    # ===================================================================
 
     return classifier, retrieve_answer
     
@@ -289,12 +315,16 @@ def handle_chat():
         new_fav = fav_score
         hit_add = any(w in user_message for w in add_words)
         hit_sub = any(w in user_message for w in sub_words)
-
+        
+        # 🔴 同学新增：记录本次变脸判定标签，用于流式首包推给前端
+        change_type = "none"
         if hit_add:
             new_fav += 3
+            change_type = "up"
             favor_tip = f"\n\n💖 好感度 +3  当前：{new_fav}"
         elif hit_sub:
             new_fav -= 5
+            change_type = "down"
             favor_tip = f"\n\n💔 好感度 -5  当前：{new_fav}"
         
         if hit_add or hit_sub:
@@ -381,46 +411,60 @@ def handle_chat():
             
             # 🔴 2. 动态检索 ChromaDB，获取带时间戳的记忆（加入置信度过滤）
 
-            # 【获取全局单例】从大厅拿到加载好的向量化模型和 ChromaDB 数据库句柄，防止内存爆炸。
-            global embed_model, collection
+            # 🔴 2. 动态检索 ChromaDB，获取带时间戳的记忆（加入精排过滤漏斗）
+            global embed_model, collection, reranker_model
 
-            # 【问题降维】把用户刚刚说的话（比如：“我上周吃了啥？”），转换成一个几百维的浮点数数学向量（Embedding）。
+            # ==================== 【阶段一：向量粗排 (Recall)】 ====================
+            # 把用户的话转换成数学向量
             query_emb = embed_model.encode([user_message], normalize_embeddings=True).tolist()[0]
 
-            # 【空间检索】带着这个数学向量，去 ChromaDB 里的多维空间寻找离它“最近（最相似）”的 3 条记忆。
-            results = collection.query(query_embeddings=[query_emb], n_results=3)
+            # 🔴 改变1：扩大搜索网！把以前的捞 3 条，变成捞 10 条备选
+            results = collection.query(query_embeddings=[query_emb], n_results=10)
 
             dynamic_context = ""
+            candidate_docs = []
 
-            # 【防御性非空校验】确保数据库真的返回了距离分数，防止空指针报错。
+            # 🔴 改变2：放宽初筛标准。把及格线从 1.2 放宽到 1.5，允许一些字面不太像、但可能有深层关系的记忆进入复试
             if results['distances'] and len(results['distances'][0]) > 0:
                 for i in range(len(results['distances'][0])):
-        
-                    # 【核心：置信度评估】获取这条记忆和当前问题的“空间距离 (Distance)”。
-                    # 在向量库里，距离越小 = 语义越接近。距离越大 = 毫不相干。
                     dist = results['distances'][0][i]
-        
-                    # 【阈值拦截器】这是防幻觉的关键！
-                    # 如果距离大于 1.2，说明数据库里根本没有相关的记忆。它只是“矮子里拔将军”硬凑了 3 条垃圾数据出来。
-                    # 所以我们设定 1.2 为及格线，不及格的记忆直接抛弃，不喂给大模型！
-                    if dist < 1.2:  
-            
-                        # 【提取内容】只有及格的优质记忆，才把具体的文字和元数据提取出来
+                    if dist < 1.5:  
                         doc = results['documents'][0][i]
                         meta = results['metadatas'][0][i]
-            
-                        # 【时序对齐】把提取时盖上的“时间戳钢印”取出来。
+                        # 把及格的记忆打包，准备送去精排
+                        candidate_docs.append((doc, meta))
+
+            # ==================== 【阶段二：交叉注意力精排 (Rerank)】 ====================
+            if candidate_docs:
+                # 组装考卷：格式必须是 [[问题, 记忆1], [问题, 记忆2], ...]
+                pairs = [[user_message, doc_info[0]] for doc_info in candidate_docs]
+                
+                # 让精排模型做阅读理解，逐字交叉对比，给出精准匹配分数
+                scores = reranker_model.predict(pairs)
+                
+                # 把分数和记忆绑定在一起：[(0.95, 记忆A), (-1.2, 记忆B), ...]
+                scored_docs = list(zip(scores, candidate_docs))
+                # 按分数从高到低排序
+                scored_docs.sort(key=lambda x: x[0], reverse=True)
+                
+                print("\n🔍 [精排引擎] 候选记忆打分结果：")
+                
+                # ==================== 【阶段三：截断与提取】 ====================
+                top_k = 0
+                for score, (doc, meta) in scored_docs:
+                    print(f"   -> 得分: {score:.4f} | 内容: {doc}")
+                    
+                    # 🔴 改变3：BGE 模型的官方及格线是 0 分。
+                    # 大于 0 说明真相关，小于 0 就算凑数垃圾。我们最多只取正分最高的前 3 条。
+                    if score > 0 and top_k < 3:  
                         mem_time = meta.get('timestamp', '未知时间')
-            
-                        # 【记忆包装】把纯文本包装成大模型极易理解的时序日志格式，比如：“[2026-05-16] 主人今天吃了苹果”
                         dynamic_context += f"[{mem_time}] {doc}\n"
+                        top_k += 1
 
             # 【终极融炉】
             # static_context：提供固定的人设、团队介绍、世界观。
-            # dynamic_context：提供用户刚刚被筛选出来的、极其精确的、带时间的私人动态记忆。
-            # 两者合并，组成无懈可击的最强 Prompt 上下文。
+            # dynamic_context：提供经过【双重质检】的私人动态记忆。
             final_context_text = f"【底层设定资料】:\n{context_text}\n\n【主人动态时序记忆】:\n{dynamic_context}"
-            
             
             # 第二步：把搜索到的文本作为 Context，拼接到 Prompt 中
             final_prompt = f"""
@@ -502,6 +546,9 @@ def handle_chat():
         def generate_stream():
             nonlocal ai_response # 允许我们在内部修改外部的 ai_response 变量
             
+            # 🟢 同学新增：精准切入点：在吐出任何模型文本碎块之前，率先把最新的好感度与情绪判定类型丢给流通道
+            yield f"data: {json.dumps({'favorability': new_fav, 'change': change_type}, ensure_ascii=False)}\n\n"
+            
             try:
                 print("🚀 正在呼叫云端超级大脑 (DeepSeek 流式模式)...")
                 # 🔴 修改点：requests.post 必须加上 stream=True 参数
@@ -538,10 +585,56 @@ def handle_chat():
                     
                     ai_response += bot_reply
                     
-                    # 发送结束标记给前端
-                    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    yield f"data: {json.dumps({'done': True, 'timestamp': timestamp})}\n\n"
+                    # ==================== 🔴 修复：生成语音 (TTS) 加入正则与清理机制 ====================
+                    try:
+                        # 1. 净化文本
+                        clean_text = re.sub(r'\[.*?\]', '', ai_response) 
+                        clean_text = re.sub(r'\(.*?\)|\（.*?\）', '', clean_text)
+                        clean_text = re.sub(r'[*#`~]', '', clean_text).strip()
+                        
+                        if clean_text: 
+                            # 2. 自动清理机制：删掉超过 3 分钟的旧音频
+                            static_dir = os.path.join(project_root, "static")
+                            now = time.time()
+                            for f in glob.glob(os.path.join(static_dir, "*.mp3")):
+                                if os.stat(f).st_mtime < now - 180:
+                                    try: os.remove(f)
+                                    except: pass
+
+                            # 3. 准备音频文件名 
+                            audio_filename = f"reply_{hashlib.md5(clean_text.encode('utf-8')).hexdigest()[:8]}.mp3"
+                            audio_path = os.path.join(static_dir, audio_filename)
+                            
+                            # 4. 呼叫 Edge-TTS 生成声音
+                            async def generate_audio():
+                                communicate = edge_tts.Communicate(clean_text, "zh-CN-XiaoyiNeural")
+                                await communicate.save(audio_path)
+                            
+                            # 🔴 核心修复：针对 Waitress 多线程安全的 asyncio 运行方式
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            try:
+                                loop.run_until_complete(generate_audio())
+                            finally:
+                                loop.close()
+                            
+                            # 发送给前端 (带语音)
+                            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            yield f"data: {json.dumps({'done': True, 'timestamp': timestamp, 'audio_url': f'/static/{audio_filename}'})}\n\n"
+                        
+                        else:
+                            # 没文字，发送给前端 (不带语音)
+                            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            yield f"data: {json.dumps({'done': True, 'timestamp': timestamp})}\n\n"
                     
+                    except Exception as e:
+                        print(f"⚠️ 语音生成失败: {e}")
+                        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        yield f"data: {json.dumps({'done': True, 'timestamp': timestamp})}\n\n"
+                    # ==============================================================
+                    
+                    # 🔴 核心修复：这里原来还有两行代码（发送结束标记给前端），必须删掉！否则会发送两次 done 导致前端紊乱！
+                
                     # 🔴 修改点：数据全部推完后，再记录历史并触发记忆提取
                     chat_history.append({"type": "User", "content": user_message, "timestamp": timestamp})
                     chat_history.append({"type": "Assistant", "content": ai_response, "timestamp": timestamp})

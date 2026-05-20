@@ -58,6 +58,8 @@ def main():
         return
     # ====================================================
     
+    save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),"models","classifier")
+    
     # 初始化分类器
     classifier = TextClassifier(model_path, num_labels=2)
     augmenter = DataAugmenter()
@@ -73,7 +75,7 @@ def main():
     classifier.train(questions, labels, batch_size=4, epochs=5, augmenter=augmenter)
     
     # 保存权重文件
-    classifier.save_model()
+    classifier.save_model(save_path = save_dir)
     print("✅ 训练圆满完成！模型权重已保存。以后启动 simple.py 将实现秒开！")
 
 if __name__ == '__main__':
