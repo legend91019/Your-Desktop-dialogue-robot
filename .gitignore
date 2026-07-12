@@ -19,3 +19,18 @@ uploads/
 # 操作系统生成的文件
 .DS_Store
 Thumbs.db
+
+# Local secrets and runtime artifacts
+baidu_asr.env
+*.env
+static/reply_*.mp3
+hardware_product/static/reply_*.mp3
+voice_records/
+hardware_product/voice_records/
+*.wav
+*.mp3
+chroma_db/
+hardware_product/chroma_db/
+
+# Temporary cloud upload files
+*.baiduyun.uploading.cfg

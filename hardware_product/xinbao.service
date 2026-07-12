@@ -1,0 +1,16 @@
+[Unit]
+Description=芯宝 Xinbao - 桌面陪伴机器人
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=__INSTALL_DIR__
+ExecStart=__INSTALL_DIR__/venv/bin/python3 __INSTALL_DIR__/app/main.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:__INSTALL_DIR__/xinbao.log
+StandardError=append:__INSTALL_DIR__/xinbao.log
+
+[Install]
+WantedBy=multi-user.target

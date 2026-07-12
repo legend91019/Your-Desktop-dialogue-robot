@@ -1,0 +1,50 @@
+{
+    "bot_settings": {
+        "name": "芯宝",
+        "description": "一个温顺可爱的桌面陪伴机器人"
+    },
+    "model_settings": {
+        "classifier_path": "models/classifier",
+        "embedding_model": "models/embedding",
+        "reranker_model": "models/reranker"
+    },
+    "path_settings": {
+        "knowledge_base": "knowledge.md",
+        "chroma_db_dir": "chroma_db",
+        "static_dir": "static"
+    },
+    "rag_settings": {
+        "top_k": 2,
+        "similarity_threshold": 0.4
+    },
+    "routing_settings": {
+        "force_rag_keywords": [
+            "芯宝",
+            "团队",
+            "创造者",
+            "开发",
+            "架构师",
+            "王勇顺",
+            "阳泽怡",
+            "徐启恒",
+            "杨赛宇",
+            "记得",
+            "喜欢",
+            "习惯",
+            "谁",
+            "什么",
+            "怎么",
+            "以前",
+            "过去",
+            "聊过"
+        ]
+    },
+    "user_settings": {
+        "master_name": "阿顺",
+        "occupation": "计算机专业大学生",
+        "current_status": "最近压力比较大，需要多鼓励"
+    },
+    "api_settings": {
+        "deepseek_api_key": ""
+    }
+}
