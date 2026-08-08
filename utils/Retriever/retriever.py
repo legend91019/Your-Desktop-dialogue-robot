@@ -4,7 +4,13 @@ from sentence_transformers import SentenceTransformer
 import re
 import hashlib
 
-def create_rag_retriever(md_path: str, model_name: str = "BAAI/bge-small-zh-v1.5", top_k: int = 2) -> callable:
+def create_rag_retriever(
+    md_path: str,
+    model_name: str = "BAAI/bge-small-zh-v1.5",
+    top_k: int = 2,
+    embed_model=None,
+    collection=None,
+) -> callable:
     # 压制无用的警告
     os.environ['KERAS_BACKEND'] = 'tensorflow'
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -14,11 +20,12 @@ def create_rag_retriever(md_path: str, model_name: str = "BAAI/bge-small-zh-v1.5
     try:
         # ==================== 1. 初始化 ChromaDB (持久化引擎) ====================
         # 在项目根目录下自动创建一个 chroma_db 文件夹用来存放数据库文件
-        db_dir = os.path.join(os.path.dirname(md_path), "chroma_db")
-        client = chromadb.PersistentClient(path=db_dir)
+        if collection is None:
+            db_dir = os.path.join(os.path.dirname(md_path), "chroma_db")
+            client = chromadb.PersistentClient(path=db_dir)
         
         # 获取或创建一个名为 qbit_memory 的集合（表）
-        collection = client.get_or_create_collection(name="qbit_memory")
+            collection = client.get_or_create_collection(name="qbit_memory")
         
         # ==================== 2. 读取并结构化数据 (复用上一版的优秀逻辑) ====================
         with open(md_path, 'r', encoding='utf-8') as f:
@@ -72,7 +79,7 @@ def create_rag_retriever(md_path: str, model_name: str = "BAAI/bge-small-zh-v1.5
         # 挑出那些数据库里没有的“新数据块”
         new_chunks = [c for c in structured_chunks if c["id"] not in existing_ids]
         
-        model = SentenceTransformer(model_name)
+        model = embed_model or SentenceTransformer(model_name)
         
         if new_chunks:
             print(f"🚀 检测到 {len(new_chunks)} 个新知识块，正在进行向量化并写入 ChromaDB...")

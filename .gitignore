@@ -20,6 +20,12 @@ uploads/
 .DS_Store
 Thumbs.db
 
+# Local tool settings
+.claude/
+
+# Large offline model files
+models/
+
 # Local secrets and runtime artifacts
 baidu_asr.env
 *.env

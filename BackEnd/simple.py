@@ -21,6 +21,7 @@ from utils.Classifier.classifier import TextClassifier
 from utils.Classifier.data_utils import DataAugmenter
 from utils.Retriever.retriever import create_rag_retriever
 from tools.time_tool import get_current_time_str
+from BackEnd.memory_admin import add_memory, delete_memory, list_memories, update_memory
 
 import threading
 import hashlib
@@ -95,7 +96,7 @@ CONFIG = load_config()
 CORS(app, resources={
     r"/api/*": {
         "origins": "*",  # 只允许前端地址
-        "methods": ["GET", "POST", "OPTIONS", "DELETE"],
+        "methods": ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
         "allow_headers": ["Content-Type"],
         "supports_credentials": True,  # 关键！允许携带 Cookie
     },
@@ -236,7 +237,6 @@ def init_model():
     
     md_file = os.path.join(project_root, "knowledge.md")
     
-    retrieve_answer = create_rag_retriever(md_file)
     
     # ==================== 🔴 以下是新增的修改 ====================
     # 3. 启动时，一次性把“几百兆的向量模型”和“数据库连接”加载好
@@ -248,6 +248,12 @@ def init_model():
     client = chromadb.PersistentClient(path=db_dir)
     collection = client.get_or_create_collection(name="qbit_memory")
     embed_model = SentenceTransformer(os.path.join(project_root,"models","embedding"))
+    retrieve_answer = create_rag_retriever(
+        md_file,
+        embed_model=embed_model,
+        collection=collection,
+        top_k=CONFIG.get('rag_settings', {}).get('top_k', 2),
+    )
     
     print("✅ 后台记忆处理引擎已稳固挂载！")
     # ==============================================================
@@ -703,6 +709,65 @@ def clear_history():
     global chat_history
     chat_history = []
     return jsonify({"message": "历史记录已清空"})
+
+
+def _memory_engine_ready(needs_embedding=False):
+    if collection is None:
+        return False
+    if needs_embedding and embed_model is None:
+        return False
+    return True
+
+
+@app.route('/api/memories', methods=['GET', 'POST'])
+def manage_memories():
+    """查看或手动新增长期记忆。"""
+    global collection, embed_model
+
+    if request.method == 'GET':
+        if not _memory_engine_ready():
+            return jsonify({"error": "记忆引擎尚未初始化，请先启动完整后端。"}), 503
+        return jsonify({"memories": list_memories(collection)})
+
+    if not _memory_engine_ready(needs_embedding=True):
+        return jsonify({"error": "记忆引擎尚未初始化，请先启动完整后端。"}), 503
+
+    data = request.json or {}
+    try:
+        memory = add_memory(
+            collection,
+            embed_model,
+            data.get('text', ''),
+            timestamp=get_current_time_str(),
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"memory": memory}), 201
+
+
+@app.route('/api/memories/<memory_id>', methods=['PUT', 'DELETE'])
+def manage_memory_item(memory_id):
+    """修改或删除单条长期记忆。"""
+    global collection, embed_model
+
+    if request.method == 'DELETE':
+        if not _memory_engine_ready():
+            return jsonify({"error": "记忆引擎尚未初始化，请先启动完整后端。"}), 503
+        try:
+            result = delete_memory(collection, memory_id)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        return jsonify(result)
+
+    if not _memory_engine_ready(needs_embedding=True):
+        return jsonify({"error": "记忆引擎尚未初始化，请先启动完整后端。"}), 503
+
+    data = request.json or {}
+    try:
+        memory = update_memory(collection, embed_model, memory_id, data.get('text', ''))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"memory": memory})
 
 
 
