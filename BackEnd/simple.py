@@ -5,8 +5,6 @@ from flask_cors import CORS # 如果运行报错，请在终端执行 pip instal
 project_root = str(Path(__file__).parent.parent.absolute())
 sys.path.append(project_root)
 
-import asyncio
-import edge_tts
 import re
 
 import glob
@@ -20,8 +18,13 @@ import datetime
 from utils.Classifier.classifier import TextClassifier
 from utils.Classifier.data_utils import DataAugmenter
 from utils.Retriever.retriever import create_rag_retriever
-from tools.time_tool import get_current_time_str
+try:
+    from BackEnd.tools.time_tool import get_current_time_str
+except ModuleNotFoundError:
+    from tools.time_tool import get_current_time_str
+from BackEnd.audio_player import play_audio_file
 from BackEnd.memory_admin import add_memory, delete_memory, list_memories, update_memory
+from BackEnd.tts_engine import generate_tts_audio, get_tts_extension, limit_tts_text, sanitize_tts_text
 
 import threading
 import hashlib
@@ -40,6 +43,11 @@ def serve_audio(filename):
     # 允许前端访问根目录下的 static 文件夹里的音频
     static_dir = os.path.join(project_root, "static")
     return send_from_directory(static_dir, filename)
+
+@app.route('/')
+def serve_frontend():
+    frontend_dir = os.path.join(project_root, "FrontEnd")
+    return send_from_directory(frontend_dir, "robot.html")
 
 def get_favorability():
     """获取当前好感度分数"""
@@ -594,39 +602,50 @@ def handle_chat():
                     # ==================== 🔴 修复：生成语音 (TTS) 加入正则与清理机制 ====================
                     try:
                         # 1. 净化文本
-                        clean_text = re.sub(r'\[.*?\]', '', ai_response) 
-                        clean_text = re.sub(r'\(.*?\)|\（.*?\）', '', clean_text)
-                        clean_text = re.sub(r'[*#`~]', '', clean_text).strip()
+                        voice_config = CONFIG.get('voice_settings', {})
+                        clean_text = sanitize_tts_text(ai_response)
+                        clean_text = limit_tts_text(
+                            clean_text,
+                            max_chars=voice_config.get('tts_max_chars', 60),
+                            max_sentences=voice_config.get('tts_max_sentences', 1),
+                        )
                         
                         if clean_text: 
                             # 2. 自动清理机制：删掉超过 3 分钟的旧音频
                             static_dir = os.path.join(project_root, "static")
                             now = time.time()
-                            for f in glob.glob(os.path.join(static_dir, "*.mp3")):
-                                if os.stat(f).st_mtime < now - 180:
-                                    try: os.remove(f)
-                                    except: pass
+                            for pattern in ("*.mp3", "*.wav"):
+                                for f in glob.glob(os.path.join(static_dir, pattern)):
+                                    if os.stat(f).st_mtime < now - 180:
+                                        try: os.remove(f)
+                                        except: pass
 
                             # 3. 准备音频文件名 
-                            audio_filename = f"reply_{hashlib.md5(clean_text.encode('utf-8')).hexdigest()[:8]}.mp3"
+                            audio_extension = get_tts_extension(voice_config)
+                            audio_filename = f"reply_{hashlib.md5(clean_text.encode('utf-8')).hexdigest()[:8]}{audio_extension}"
                             audio_path = os.path.join(static_dir, audio_filename)
                             
                             # 4. 呼叫 Edge-TTS 生成声音
-                            async def generate_audio():
-                                communicate = edge_tts.Communicate(clean_text, "zh-CN-XiaoyiNeural")
-                                await communicate.save(audio_path)
                             
                             # 🔴 核心修复：针对 Waitress 多线程安全的 asyncio 运行方式
-                            loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-                            try:
-                                loop.run_until_complete(generate_audio())
-                            finally:
-                                loop.close()
+                            tts_result = generate_tts_audio(clean_text, audio_path, voice_config)
+                            audio_path = tts_result.get("output_path", audio_path)
+                            audio_filename = os.path.basename(audio_path)
                             
+                            try:
+                                local_playback_enabled = voice_config.get('local_playback', True)
+                                local_audio = play_audio_file(audio_path, enabled=local_playback_enabled)
+                            except Exception as audio_error:
+                                print(f"⚠️ 本机语音播放失败，将交给前端兜底播放: {audio_error}")
+                                local_audio = {
+                                    "played": False,
+                                    "method": "error",
+                                    "error": str(audio_error),
+                                }
+
                             # 发送给前端 (带语音)
                             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            yield f"data: {json.dumps({'done': True, 'timestamp': timestamp, 'audio_url': f'/static/{audio_filename}'})}\n\n"
+                            yield f"data: {json.dumps({'done': True, 'timestamp': timestamp, 'audio_url': f'/static/{audio_filename}', 'local_audio': local_audio}, ensure_ascii=False)}\n\n"
                         
                         else:
                             # 没文字，发送给前端 (不带语音)

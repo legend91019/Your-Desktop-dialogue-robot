@@ -1,43 +1,47 @@
 @echo off
-:: 设置编码为UTF-8，防止终端中文乱码
 chcp 65001 >nul
+cd /d "%~dp0"
 
 echo ===================================================
-echo   IntelliChat 一键下载模型与分类器训练脚本
+echo   Xinbao basic model and classifier setup
 echo ===================================================
 echo.
 
-:: 1. 执行下载所有模型的脚本
-echo [步骤 1/2] 正在运行 download_all_models.py 下载所需模型...
+echo [1/2] Downloading basic embedding and reranker models...
 python download_all_models.py
 if %errorlevel% neq 0 (
     echo.
-    echo [错误] 模型下载失败，请检查网络连接或Python环境！
+    echo [ERROR] Basic model download failed.
+    echo Please check the network connection and Python environment.
     goto error
 )
-echo [成功] 所有模型下载完成！
+echo [OK] Basic models are ready.
 echo.
 
-:: 2. 执行训练分类器的脚本
-echo [步骤 2/2] 正在运行 train_classifier.py 开始训练分类器...
+echo [2/2] Training the local classifier...
 python train_classifier.py
 if %errorlevel% neq 0 (
     echo.
-    echo [错误] 分类器训练失败，请检查数据集或脚本代码！
+    echo [ERROR] Classifier training failed.
+    echo Please check classifier_corpus.csv and the Python dependencies.
     goto error
 )
-echo [成功] 分类器训练完成！
+echo [OK] Classifier training completed.
 echo.
 
 echo ===================================================
-echo   所有任务已成功执行完毕！
+echo   Setup completed.
+echo   Index-TTS is optional and was not downloaded.
+echo   To download it later, run:
+echo     python download_all_models.py --with-indextts
 echo ===================================================
 goto end
 
 :error
 echo.
-echo 程序因错误中止。
-echo ===================================================
+echo Setup stopped because of an error.
+pause
+exit /b 1
 
 :end
 pause

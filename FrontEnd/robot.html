@@ -882,8 +882,12 @@
                               if (dataObj.done) {
                                 done = true;
                                 if (dataObj.audio_url) {
+                                  if (dataObj.local_audio && dataObj.local_audio.attempted) {
+                                    console.log("后端已尝试本机语音播放，前端继续执行兜底播放。", dataObj.local_audio);
+                                  }
                                   const player = document.getElementById('robotVoicePlayer');
-                                  player.src = 'http://127.0.0.1:5000' + dataObj.audio_url; 
+                                  player.src = 'http://127.0.0.1:5000' + dataObj.audio_url + '?t=' + Date.now();
+                                  player.load();
         
                                   // 👇 恢复正常音量
                                   player.volume = 1; 
