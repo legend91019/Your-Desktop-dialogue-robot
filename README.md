@@ -3,11 +3,27 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Backend](https://img.shields.io/badge/Backend-Flask-green)
 ![Memory](https://img.shields.io/badge/Memory-ChromaDB-orange)
-![Release](https://img.shields.io/badge/Release-v0.2.0--beta-purple)
+![Release](https://img.shields.io/badge/Release-v1.0.0-brightgreen)
 
-芯宝是一个面向个人使用的桌面对话机器人项目，包含云端大模型对话、本地向量记忆、长程记忆管理、edge-tts 语音播报，以及可选的 Index-TTS 本地音色方案。
+芯宝是一个面向个人使用的桌面对话机器人项目，包含云端大模型对话、本地向量记忆、长期记忆管理、edge-tts 语音播报，以及可选的 Index-TTS 本地音色方案。
 
-## v0.2.0-beta 的语音策略
+## 快速开始
+
+第一次运行推荐按顺序执行：
+
+```powershell
+install.bat
+download_models.bat
+start_xinbao_desktop.bat
+```
+
+如果你使用 conda，也可以先激活自己的环境：
+
+```powershell
+conda activate xinbao_env
+```
+
+## v1.0.0 的语音策略
 
 本版本提供两条路线：
 
@@ -18,24 +34,27 @@
 
 不配置 Index-TTS 时，芯宝仍然可以使用 edge-tts 正常运行。Index-TTS 不属于基础安装，也不会被默认模型下载脚本下载。
 
-## 快速体验：edge-tts 基础路线
+## 基础路线：edge-tts
 
-### 1. 创建并激活环境
+### 1. 安装依赖
 
 ```powershell
-conda create -n xinbao_env python=3.10
-conda activate xinbao_env
+install.bat
 ```
 
-也可以使用已有的 Python 环境。
-
-### 2. 安装基础依赖
+等价于：
 
 ```powershell
 python -m pip install -r requirements.txt
 ```
 
-### 3. 下载基础模型
+### 2. 下载基础模型
+
+```powershell
+download_models.bat
+```
+
+等价于：
 
 ```powershell
 python download_all_models.py
@@ -43,21 +62,28 @@ python download_all_models.py
 
 默认只下载 embedding 和 reranker，不下载 Index-TTS。
 
-也可以运行：
+如果还需要训练本地分类器，可以运行：
 
 ```powershell
 models_ready.bat
 ```
 
-这个脚本会下载基础模型并训练本地分类器。
+### 3. 配置 API Key
 
-### 4. 配置 API Key
+请参考 `config.example.json` 创建或修改本地 `config.json`，填写自己的 DeepSeek API Key。
 
-请参考 `config.example.json` 创建本地 `config.json`，然后填写自己的 DeepSeek API Key。
+公开仓库中的 `config.json` 和 `config.example.json` 默认都不包含真实 API Key，并且默认使用：
+
+```json
+{
+  "engine": "edge_tts",
+  "fallback_engine": "edge_tts"
+}
+```
 
 真实 API Key、数据库、模型和运行缓存不能提交到 GitHub。
 
-### 5. 启动桌面版
+### 4. 启动桌面版
 
 ```powershell
 start_xinbao_desktop.bat
@@ -69,7 +95,7 @@ start_xinbao_desktop.bat
 python desktop_launcher.py
 ```
 
-基础路线默认使用 `edge_tts`，不需要下载 Index-TTS 官方仓库，也不需要创建 Index-TTS 专用环境。
+基础路线不需要下载 Index-TTS 官方仓库，也不需要创建 Index-TTS 专用环境。
 
 ## 可选增强：Index-TTS 本地音色路线
 
@@ -104,7 +130,6 @@ D:\IndexTTS\index-tts-src
 在芯宝项目根目录执行：
 
 ```powershell
-conda activate xinbao_env
 python download_all_models.py --with-indextts
 ```
 
@@ -178,10 +203,10 @@ IntelliChat-Platform/
 ├─ FrontEnd/robot.html       # 对话页面
 ├─ tools/indextts_service.py # 可选 Index-TTS 服务
 ├─ tests/                    # 软件端测试
-├─ models/                   # 本地模型，不提交
-├─ chroma_db/                # 本地记忆数据库，不提交
 ├─ config.example.json       # 公共示例配置
-├─ download_all_models.py    # 基础模型下载脚本
+├─ install.bat               # 安装基础依赖
+├─ download_models.bat       # 下载基础模型
+├─ download_all_models.py    # 模型下载脚本
 ├─ desktop_launcher.py       # 桌面启动器
 ├─ models_ready.bat          # 基础模型与分类器初始化
 └─ start_xinbao_desktop.bat  # 桌面启动
@@ -203,6 +228,6 @@ IntelliChat-Platform/
 
 ## 当前版本
 
-`v0.2.0-beta`
+`v1.0.0`
 
-本版本重点是默认 edge-tts、可选 Index-TTS、可管理长期记忆，以及为后续 GitHub 正式 Release 做准备。
+这是芯宝桌面软件端的第一个正式 GitHub Release。该版本优先保证默认路线可安装、可启动、仓库干净，并把 Index-TTS 保持为可选增强。
