@@ -186,8 +186,8 @@ def parse_args(argv=None):
     parser.add_argument(
         "--torch",
         choices=["cu128", "cpu", "skip"],
-        default=os.environ.get("XINBAO_TORCH_VARIANT", "cu128"),
-        help="PyTorch wheel variant. Default: cu128. Use cpu for non-NVIDIA machines, skip if already installed.",
+        default=os.environ.get("XINBAO_TORCH_VARIANT", "cpu"),
+        help="PyTorch wheel variant. Default: cpu. Use cu128 for NVIDIA CUDA 12.8 machines, skip if already installed.",
     )
     return parser.parse_args(argv)
 

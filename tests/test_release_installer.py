@@ -79,10 +79,10 @@ class ReleaseInstallerTest(unittest.TestCase):
             with patch("tools.setup_env.python_version", return_value=(3, 11, 9)):
                 self.assertEqual(setup_env.find_base_python(), ["py", "-3.11"])
 
-    def test_setup_env_defaults_to_cuda_128_torch_variant(self):
+    def test_setup_env_defaults_to_cpu_torch_variant(self):
         args = setup_env.parse_args([])
 
-        self.assertEqual(args.torch, "cu128")
+        self.assertEqual(args.torch, "cpu")
 
     def test_setup_env_install_order(self):
         calls = []

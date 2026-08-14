@@ -11,7 +11,7 @@
 
 本仓库的公开版本不应包含 API Key、本地数据库、运行音频、模型权重或个人报告材料。
 
-当前版本：`v1.0.3`。这是对 `v1.0.2` 的安装器修复版，重点解决 uv 托管 Python 创建 `.venv` 后缺少 pip 的问题。
+当前版本：`v1.0.4`。这是面向默认 `edge-tts` release 路线的安装体验修复版：默认安装 CPU 版 PyTorch，避免普通用户首次安装时下载超大的 CUDA wheel。
 
 ## 快速开始
 
@@ -53,10 +53,10 @@ install.bat
 
 并使用它创建 `.venv/`。这两个目录都属于本地运行产物，不应该上传到 GitHub。
 
-默认安装 CUDA 12.8 版 PyTorch。纯 CPU 电脑可以先在 PowerShell 里设置：
+默认安装 CPU 版 PyTorch，更适合普通桌面 release 和 `edge-tts` 语音路线。如果你明确需要 CUDA 12.8 版 PyTorch，可以先在 PowerShell 里设置：
 
 ```powershell
-$env:XINBAO_TORCH_VARIANT="cpu"
+$env:XINBAO_TORCH_VARIANT="cu128"
 ```
 
 然后再运行 `install.bat`。

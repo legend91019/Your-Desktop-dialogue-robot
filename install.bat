@@ -3,7 +3,7 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 echo ===================================================
-echo   Xinbao v1.0.3 dependency installer
+echo   Xinbao v1.0.4 dependency installer
 echo ===================================================
 echo.
 echo This script creates a private project environment in .venv.
@@ -15,8 +15,8 @@ if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Dependency installation failed.
     echo Please check your network connection, then rerun install.bat.
-    echo For CPU-only PyTorch, run in PowerShell before install:
-    echo     $env:XINBAO_TORCH_VARIANT="cpu"
+    echo Default PyTorch variant is CPU. For CUDA 12.8, run in PowerShell before install:
+    echo     $env:XINBAO_TORCH_VARIANT="cu128"
     echo.
     pause
     exit /b %errorlevel%
