@@ -11,7 +11,7 @@
 
 本仓库的公开版本不应包含 API Key、本地数据库、运行音频、模型权重或个人报告材料。
 
-当前版本：`v1.0.5`。这是面向默认 `edge-tts` release 路线的安装体验修复版：普通用户不再需要训练本地路由分类器，仓库已内置轻量成品分类器。
+当前版本：`v1.0.6`。这是面向 GPU 桌面演示的 release 版本：默认安装 CUDA 12.8 版 PyTorch，同时保留 v1.0.5 的内置轻量路由分类器，普通用户不需要训练分类器。
 
 ## 快速开始
 
@@ -53,10 +53,12 @@ install.bat
 
 并使用它创建 `.venv/`。这两个目录都属于本地运行产物，不应该上传到 GitHub。
 
-默认安装 CPU 版 PyTorch，更适合普通桌面 release 和 `edge-tts` 语音路线。如果你明确需要 CUDA 12.8 版 PyTorch，可以先在 PowerShell 里设置：
+默认安装 CUDA 12.8 版 PyTorch，以匹配芯宝的本地 RAG、reranker 和后续 GPU 推理需求。这个 wheel 较大，首次安装下载几 GB 属于正常现象。
+
+如果电脑没有 NVIDIA 显卡，只想用 CPU fallback，可以先在 PowerShell 里设置：
 
 ```powershell
-$env:XINBAO_TORCH_VARIANT="cu128"
+$env:XINBAO_TORCH_VARIANT="cpu"
 ```
 
 然后再运行 `install.bat`。
