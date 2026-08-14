@@ -28,7 +28,7 @@ class ReleaseArtifactsTest(unittest.TestCase):
     def test_readme_documents_v1_and_optional_indextts(self):
         readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn("v1.0.2", readme)
+        self.assertIn("v1.0.3", readme)
         self.assertIn("install.bat", readme)
         self.assertIn("download_models.bat", readme)
         self.assertIn("start_xinbao_desktop.bat", readme)
@@ -40,6 +40,7 @@ class ReleaseArtifactsTest(unittest.TestCase):
         for relative_path in [
             "docs/RELEASE_NOTES_v1.0.0.md",
             "docs/RELEASE_NOTES_v1.0.2.md",
+            "docs/RELEASE_NOTES_v1.0.3.md",
             "docs/RELEASE_CHECKLIST.md",
         ]:
             path = PROJECT_ROOT / relative_path

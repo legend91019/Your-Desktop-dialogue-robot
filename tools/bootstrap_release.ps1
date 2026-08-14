@@ -119,7 +119,7 @@ function Ensure-Venv {
     $env:UV_PYTHON_INSTALL_DIR = $LocalPythonDir
     $env:UV_CACHE_DIR = Join-Path $ProjectRoot ".uv-cache"
 
-    & $uv venv $VenvDir --python 3.11 --python-preference managed
+    & $uv venv $VenvDir --python 3.11 --python-preference managed --seed
     if ($LASTEXITCODE -ne 0) {
         throw "uv failed to create .venv with managed Python 3.11"
     }

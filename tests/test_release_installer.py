@@ -29,6 +29,7 @@ class ReleaseInstallerTest(unittest.TestCase):
         self.assertIn("uv venv", content)
         self.assertIn("--python 3.11", content)
         self.assertIn("UV_PYTHON_INSTALL_DIR", content)
+        self.assertIn("--seed", content)
         self.assertIn(".python", content)
         self.assertIn(".tools", content)
 

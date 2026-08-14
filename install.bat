@@ -3,7 +3,7 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 echo ===================================================
-echo   Xinbao v1.0.2 dependency installer
+echo   Xinbao v1.0.3 dependency installer
 echo ===================================================
 echo.
 echo This script creates a private project environment in .venv.
