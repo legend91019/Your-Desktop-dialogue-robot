@@ -47,11 +47,27 @@ class ReleaseInstallerTest(unittest.TestCase):
                 content = script.read_text(encoding="utf-8")
                 self.assertIn(".venv\\Scripts\\python.exe", content)
 
-    def test_download_models_bat_trains_classifier_for_three_step_release_flow(self):
-        content = (PROJECT_ROOT / "download_models.bat").read_text(encoding="utf-8")
+    def test_download_models_bat_does_not_train_classifier_for_release_flow(self):
+        for filename in ["download_models.bat", "models_ready.bat"]:
+            with self.subTest(filename=filename):
+                content = (PROJECT_ROOT / filename).read_text(encoding="utf-8")
 
-        self.assertIn("download_all_models.py", content)
-        self.assertIn("train_classifier.py", content)
+                self.assertIn("download_all_models.py", content)
+                self.assertNotIn("train_classifier.py", content)
+                self.assertIn("route_classifier.joblib", content)
+
+    def test_release_ships_lightweight_route_classifier_artifact(self):
+        artifact = PROJECT_ROOT / "assets" / "classifier" / "route_classifier.joblib"
+
+        self.assertTrue(artifact.exists(), "release should include a ready-to-use lightweight route classifier")
+        self.assertLess(artifact.stat().st_size, 5 * 1024 * 1024)
+
+    def test_backend_uses_lightweight_route_classifier(self):
+        backend = (PROJECT_ROOT / "BackEnd" / "simple.py").read_text(encoding="utf-8")
+
+        self.assertIn("load_route_classifier", backend)
+        self.assertIn("route_classifier.joblib", backend)
+        self.assertNotIn("TextClassifier", backend)
 
     def test_readme_does_not_contain_generation_artifacts(self):
         readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")

@@ -11,7 +11,7 @@
 
 本仓库的公开版本不应包含 API Key、本地数据库、运行音频、模型权重或个人报告材料。
 
-当前版本：`v1.0.4`。这是面向默认 `edge-tts` release 路线的安装体验修复版：默认安装 CPU 版 PyTorch，避免普通用户首次安装时下载超大的 CUDA wheel。
+当前版本：`v1.0.5`。这是面向默认 `edge-tts` release 路线的安装体验修复版：普通用户不再需要训练本地路由分类器，仓库已内置轻量成品分类器。
 
 ## 快速开始
 
@@ -69,7 +69,13 @@ $env:XINBAO_TORCH_VARIANT="cu128"
 download_models.bat
 ```
 
-该脚本会下载基础 RAG / 向量检索模型，并训练本地分类器。它不会下载 Index-TTS 大模型。
+该脚本会下载基础 RAG / 向量检索模型，并检查仓库内置的轻量路由分类器：
+
+```text
+assets/classifier/route_classifier.joblib
+```
+
+普通用户不需要运行 `train_classifier.py`。它不会下载 Index-TTS 大模型。
 
 `models_ready.bat` 保留为旧流程兼容入口，作用与 `download_models.bat` 基本一致：
 
@@ -112,12 +118,14 @@ Index-TTS 建议使用它自己的官方仓库和独立环境，不要把 Index-
 ```text
 BackEnd/                    后端服务、TTS、记忆管理
 FrontEnd/                   桌面窗口加载的前端页面
-tools/                      辅助脚本，包括环境安装和 Index-TTS 服务桥接
+tools/                      辅助脚本，包括环境安装、轻量分类器构建和 Index-TTS 服务桥接
 utils/                      分类器与 RAG 检索模块
+assets/classifier/          release 内置轻量路由分类器
 tests/                      单元测试
 docs/                       说明文档
 download_all_models.py      基础模型下载脚本，Index-TTS 可选
-train_classifier.py         本地分类器训练脚本
+train_classifier.py         旧版 BERT 分类器训练脚本，仅开发者需要
+tools/build_route_classifier.py  从 classifier_corpus.csv 生成 release 轻量分类器
 desktop_launcher.py         桌面启动入口
 install.bat                 创建 .venv 并安装依赖
 download_models.bat         下载基础模型

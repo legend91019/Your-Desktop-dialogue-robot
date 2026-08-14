@@ -15,8 +15,7 @@ from flask_cors import CORS
 import os
 import datetime
 
-from utils.Classifier.classifier import TextClassifier
-from utils.Classifier.data_utils import DataAugmenter
+from utils.Classifier.route_classifier import load_route_classifier
 from utils.Retriever.retriever import create_rag_retriever
 try:
     from BackEnd.tools.time_tool import get_current_time_str
@@ -230,17 +229,9 @@ def init_model():
     global embed_model, collection, reranker_model
     current_script_path = os.path.abspath(__file__)
     project_root = os.path.dirname(os.path.dirname(current_script_path))
-    # 配置参数
-    model_path = os.path.join(project_root,"models","classifier")
-    
-    # 初始化分类器
-    classifier = TextClassifier(model_path, num_labels=2)
-    
-    # 纯粹的加载逻辑，没有任何训练包袱
-    if not classifier.load_model():
-        print("❌ 致命警告：未找到训练好的分类器模型！请先在根目录运行 python train_classifier.py")
-    else:
-        print("✅ 交通警察 (分类器权重) 加载成功！")
+    route_classifier_path = os.path.join(project_root, "assets", "classifier", "route_classifier.joblib")
+    classifier = load_route_classifier(route_classifier_path)
+    print("✅ 轻量路由分类器加载成功，release 用户无需训练分类器。")
 
     
     md_file = os.path.join(project_root, "knowledge.md")

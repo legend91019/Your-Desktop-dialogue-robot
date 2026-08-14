@@ -3,7 +3,7 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 echo ===================================================
-echo   Xinbao model download and classifier training
+echo   Xinbao model download
 echo ===================================================
 echo.
 
@@ -26,14 +26,13 @@ if %errorlevel% neq 0 (
 echo [OK] Base models are ready.
 echo.
 
-echo [2/2] Running train_classifier.py...
-"%PYTHON_EXE%" train_classifier.py
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] Classifier training failed. Please check classifier_corpus.csv and dependencies.
+echo [2/2] Checking packaged route classifier...
+if not exist "assets\classifier\route_classifier.joblib" (
+    echo [ERROR] Packaged route classifier is missing:
+    echo     assets\classifier\route_classifier.joblib
     goto error
 )
-echo [OK] Classifier training is complete.
+echo [OK] Packaged route classifier is ready.
 echo.
 
 echo ===================================================

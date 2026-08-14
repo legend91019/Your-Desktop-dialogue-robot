@@ -28,13 +28,14 @@ class ReleaseArtifactsTest(unittest.TestCase):
     def test_readme_documents_v1_and_optional_indextts(self):
         readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn("v1.0.4", readme)
+        self.assertIn("v1.0.5", readme)
         self.assertIn("install.bat", readme)
         self.assertIn("download_models.bat", readme)
         self.assertIn("start_xinbao_desktop.bat", readme)
         self.assertIn("Index-TTS", readme)
         self.assertIn("--with-indextts", readme)
         self.assertIn(".python/", readme)
+        self.assertIn("route_classifier.joblib", readme)
 
     def test_release_notes_and_checklist_exist(self):
         for relative_path in [
@@ -42,6 +43,7 @@ class ReleaseArtifactsTest(unittest.TestCase):
             "docs/RELEASE_NOTES_v1.0.2.md",
             "docs/RELEASE_NOTES_v1.0.3.md",
             "docs/RELEASE_NOTES_v1.0.4.md",
+            "docs/RELEASE_NOTES_v1.0.5.md",
             "docs/RELEASE_CHECKLIST.md",
         ]:
             path = PROJECT_ROOT / relative_path

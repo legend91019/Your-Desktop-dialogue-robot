@@ -3,7 +3,7 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 echo ===================================================
-echo   Xinbao model downloader and classifier trainer
+echo   Xinbao model downloader
 echo ===================================================
 echo.
 
@@ -28,18 +28,16 @@ if %errorlevel% neq 0 (
 echo.
 echo [OK] Base models are ready.
 echo.
-echo [2/2] Training local classifier...
-"%PYTHON_EXE%" train_classifier.py
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] Classifier training failed. Please check classifier_corpus.csv and dependencies.
+if not exist "assets\classifier\route_classifier.joblib" (
+    echo [ERROR] Packaged route classifier is missing:
+    echo     assets\classifier\route_classifier.joblib
+    echo Please download a complete release package.
     echo.
     pause
-    exit /b %errorlevel%
+    exit /b 1
 )
 
-echo.
-echo [OK] Classifier training is complete.
+echo [OK] Packaged route classifier is ready: assets\classifier\route_classifier.joblib
 echo Optional Index-TTS models are not downloaded by default.
 echo To download them later, run:
 echo     "%PYTHON_EXE%" download_all_models.py --with-indextts
