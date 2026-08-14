@@ -15,7 +15,7 @@ class ReleaseArtifactsTest(unittest.TestCase):
             "start_xinbao_desktop.bat",
         ]:
             path = PROJECT_ROOT / relative_path
-            self.assertTrue(path.exists(), f"{relative_path} should exist for v1.0.0 release")
+            self.assertTrue(path.exists(), f"{relative_path} should exist for v1 release")
 
     def test_public_config_defaults_to_edge_tts_without_api_key(self):
         for relative_path in ["config.json", "config.example.json"]:
@@ -28,16 +28,18 @@ class ReleaseArtifactsTest(unittest.TestCase):
     def test_readme_documents_v1_and_optional_indextts(self):
         readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn("v1.0.0", readme)
+        self.assertIn("v1.0.2", readme)
         self.assertIn("install.bat", readme)
         self.assertIn("download_models.bat", readme)
         self.assertIn("start_xinbao_desktop.bat", readme)
         self.assertIn("Index-TTS", readme)
         self.assertIn("--with-indextts", readme)
+        self.assertIn(".python/", readme)
 
     def test_release_notes_and_checklist_exist(self):
         for relative_path in [
             "docs/RELEASE_NOTES_v1.0.0.md",
+            "docs/RELEASE_NOTES_v1.0.2.md",
             "docs/RELEASE_CHECKLIST.md",
         ]:
             path = PROJECT_ROOT / relative_path

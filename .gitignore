@@ -4,6 +4,9 @@ __pycache__/
 *$py.class
 venv/
 .venv/
+.python/
+.tools/
+.uv-cache/
 env/
 pytorch_env/
 .env

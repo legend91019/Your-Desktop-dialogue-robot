@@ -1,4 +1,5 @@
 import unittest
+from tempfile import TemporaryDirectory
 from pathlib import Path
 from unittest.mock import patch
 
@@ -15,9 +16,21 @@ class ReleaseInstallerTest(unittest.TestCase):
         self.assertTrue(install_bat.exists(), "install.bat should exist for release users")
         content = install_bat.read_text(encoding="utf-8")
 
-        self.assertIn("tools\\setup_env.py", content)
+        self.assertIn("tools\\bootstrap_release.ps1", content)
         self.assertIn(".venv", content)
-        self.assertIn("BOOTSTRAP_PYTHON=py", content)
+        self.assertIn("powershell", content.lower())
+
+    def test_release_has_powershell_bootstrap_for_missing_python_311(self):
+        bootstrap = PROJECT_ROOT / "tools" / "bootstrap_release.ps1"
+
+        self.assertTrue(bootstrap.exists(), "release should bootstrap Python without manual env creation")
+        content = bootstrap.read_text(encoding="utf-8")
+
+        self.assertIn("uv venv", content)
+        self.assertIn("--python 3.11", content)
+        self.assertIn("UV_PYTHON_INSTALL_DIR", content)
+        self.assertIn(".python", content)
+        self.assertIn(".tools", content)
 
     def test_requirements_do_not_pin_cuda_torch_wheels(self):
         requirements = (PROJECT_ROOT / "requirements.txt").read_text(encoding="utf-8")
@@ -48,11 +61,17 @@ class ReleaseInstallerTest(unittest.TestCase):
         self.assertIn("download_models.bat", readme)
         self.assertIn("start_xinbao_desktop.bat", readme)
 
-    def test_setup_env_rejects_python_313_candidates(self):
-        with patch("tools.setup_env.candidate_pythons", return_value=iter([["python"]])):
-            with patch("tools.setup_env.python_version", return_value=(3, 13, 5)):
-                with self.assertRaisesRegex(RuntimeError, "requires Python 3.10 or 3.11"):
-                    setup_env.find_base_python()
+    def test_setup_env_falls_back_to_managed_python_when_candidates_are_unsupported(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_venv = Path(temp_dir) / ".venv"
+            expected_python = temp_venv / "Scripts" / "python.exe"
+            with patch("tools.setup_env.VENV_DIR", temp_venv):
+                with patch("tools.setup_env.candidate_pythons", return_value=iter([["python"]])):
+                    with patch("tools.setup_env.python_version", return_value=(3, 13, 5)):
+                        with patch("tools.setup_env.create_venv_with_uv", return_value=expected_python) as managed:
+                            self.assertEqual(setup_env.ensure_venv(), expected_python)
+
+        managed.assert_called_once()
 
     def test_setup_env_accepts_python_311_candidate(self):
         with patch("tools.setup_env.candidate_pythons", return_value=iter([["py", "-3.11"]])):
@@ -74,6 +93,12 @@ class ReleaseInstallerTest(unittest.TestCase):
                         setup_env.main([])
 
         self.assertEqual(calls, ["upgrade", "torch", "requirements"])
+
+    def test_gitignore_excludes_release_bootstrap_artifacts(self):
+        gitignore = (PROJECT_ROOT / ".gitignore").read_text(encoding="utf-8")
+
+        self.assertIn(".python/", gitignore)
+        self.assertIn(".tools/", gitignore)
 
 
 if __name__ == "__main__":

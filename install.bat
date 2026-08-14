@@ -3,27 +3,20 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 echo ===================================================
-echo   Xinbao v1.0.0 dependency installer
+echo   Xinbao v1.0.2 dependency installer
 echo ===================================================
 echo.
 echo This script creates a private project environment in .venv.
-echo Recommended Python: 3.10 or 3.11.
+echo If Python 3.10/3.11 is missing, it will bootstrap a local Python 3.11 runtime.
 echo.
 
-set "BOOTSTRAP_PYTHON=python"
-if exist ".venv\Scripts\python.exe" set "BOOTSTRAP_PYTHON=.venv\Scripts\python.exe"
-if not exist ".venv\Scripts\python.exe" (
-    where python >nul 2>nul
-    if errorlevel 1 set "BOOTSTRAP_PYTHON=py"
-)
-
-"%BOOTSTRAP_PYTHON%" tools\setup_env.py
+powershell -NoProfile -ExecutionPolicy Bypass -File "tools\bootstrap_release.ps1" %*
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Dependency installation failed.
-    echo If your PC has no Python 3.10/3.11, install one and rerun this file.
-    echo For CPU-only installation, run:
-    echo     python tools\setup_env.py --torch cpu
+    echo Please check your network connection, then rerun install.bat.
+    echo For CPU-only PyTorch, run in PowerShell before install:
+    echo     $env:XINBAO_TORCH_VARIANT="cpu"
     echo.
     pause
     exit /b %errorlevel%

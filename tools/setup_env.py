@@ -10,6 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 VENV_DIR = PROJECT_ROOT / ".venv"
 REQUIREMENTS_FILE = PROJECT_ROOT / "requirements.txt"
 SUPPORTED_MINORS = {(3, 10), (3, 11)}
+BOOTSTRAP_SCRIPT = PROJECT_ROOT / "tools" / "bootstrap_release.ps1"
 
 
 def run(command):
@@ -86,9 +87,39 @@ def find_base_python():
         "Xinbao release installer requires Python 3.10 or 3.11.\n"
         "Detected candidates:\n"
         f"{details}\n\n"
-        "Please install Python 3.10/3.11 from https://www.python.org/downloads/ "
-        "and rerun install.bat. If you already have it, set XINBAO_PYTHON to its python.exe path."
+        "The installer will try to create a project-local Python 3.11 runtime next."
     )
+
+
+def create_venv_with_uv():
+    if not BOOTSTRAP_SCRIPT.exists():
+        raise RuntimeError(f"Missing bootstrap script: {BOOTSTRAP_SCRIPT}")
+
+    powershell = shutil.which("powershell") or shutil.which("powershell.exe")
+    if not powershell:
+        raise RuntimeError(
+            "No compatible Python was found, and PowerShell is unavailable for automatic bootstrap."
+        )
+
+    print("No compatible Python 3.10/3.11 was found.")
+    print("Creating a project-local Python 3.11 runtime with uv...")
+    run(
+        [
+            powershell,
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            BOOTSTRAP_SCRIPT,
+            "-CreateVenvOnly",
+        ]
+    )
+
+    python_exe = venv_python()
+    if not python_exe.exists():
+        raise RuntimeError(f"uv bootstrap finished but .venv Python was not found: {python_exe}")
+
+    return python_exe
 
 
 def venv_python():
@@ -108,7 +139,12 @@ def ensure_venv():
             "Please delete the project .venv folder and rerun install.bat."
         )
 
-    base_python = find_base_python()
+    try:
+        base_python = find_base_python()
+    except RuntimeError as exc:
+        print(exc)
+        return create_venv_with_uv()
+
     run([*base_python, "-m", "venv", str(VENV_DIR)])
     return python_exe
 

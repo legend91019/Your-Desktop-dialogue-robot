@@ -11,7 +11,7 @@
 
 本仓库的公开版本不应包含 API Key、本地数据库、运行音频、模型权重或个人报告材料。
 
-当前版本：`v1.0.1`。这是对 `v1.0.0` 的安装器修复版，重点解决 release 测试中暴露的系统 Python 3.13 与 CUDA PyTorch 依赖安装问题。
+当前版本：`v1.0.2`。这是对 `v1.0.1` 的安装器自动化修复版，重点解决普通用户电脑只有 Python 3.13 或没有兼容 Python 时无法一键创建环境的问题。
 
 ## 快速开始
 
@@ -45,13 +45,21 @@ install.bat
 
 这样不会把依赖装进用户的系统 Python、Anaconda base 环境或其它项目环境。
 
-安装器会优先寻找 Python 3.11 / 3.10。如果电脑上只有 Python 3.13，安装器会停止并提示安装兼容版本，避免依赖装到一半才失败。
+安装器会优先寻找电脑上已有的 Python 3.11 / 3.10。如果没有兼容版本，它会自动下载一个项目本地使用的 Python 3.11 运行时到：
 
-默认安装 CUDA 12.8 版 PyTorch。纯 CPU 电脑可以使用：
-
-```bat
-python tools\setup_env.py --torch cpu
+```text
+.python/
 ```
+
+并使用它创建 `.venv/`。这两个目录都属于本地运行产物，不应该上传到 GitHub。
+
+默认安装 CUDA 12.8 版 PyTorch。纯 CPU 电脑可以先在 PowerShell 里设置：
+
+```powershell
+$env:XINBAO_TORCH_VARIANT="cpu"
+```
+
+然后再运行 `install.bat`。
 
 ### 2. 下载基础模型
 
@@ -124,7 +132,7 @@ start_xinbao_desktop.bat    启动桌面版
 - `models/` 下的模型本体；
 - `chroma_db/` 本地记忆数据库；
 - `static/reply_*.mp3` 等运行音频；
-- `.venv/`、`venv/` 等虚拟环境；
+- `.venv/`、`.python/`、`.tools/`、`.uv-cache/`、`venv/` 等本地环境和安装缓存；
 - 个人报告、查新报告、临时缓存。
 
 ## 测试
