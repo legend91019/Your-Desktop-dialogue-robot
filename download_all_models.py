@@ -43,7 +43,7 @@ def download_embedding():
 
 def download_indextts2():
     target = ensure_dir(DEFAULT_INDEXTTS_MODEL_DIR)
-    print(f"[3/3] Downloading IndexTTS2 from ModelScope to {target}")
+    print(f"[optional] Downloading IndexTTS2 from ModelScope to {target}")
     modelscope_snapshot_download(
         "IndexTeam/IndexTTS-2",
         local_dir=str(target),
@@ -53,28 +53,25 @@ def download_indextts2():
 
 
 def parse_args(argv=None):
-    parser = argparse.ArgumentParser(
-        description="Download Xinbao's basic models; Index-TTS is optional."
-    )
+    parser = argparse.ArgumentParser(description="Download Xinbao model assets.")
     parser.add_argument(
         "--with-indextts",
         action="store_true",
-        help="Also download Index-TTS weights. Requires the separate official Index-TTS environment.",
+        help="Also download optional Index-TTS checkpoints. This is large and not needed for the default edge-tts mode.",
     )
     return parser.parse_args(argv)
 
 
 def main(argv=None):
     args = parse_args(argv)
-    print("Starting basic model download into project models/ directory.")
+    print("Starting centralized model download into project models/ directory.")
     download_reranker()
     download_embedding()
     if args.with_indextts:
         download_indextts2()
-        print("Optional Index-TTS model assets are ready under models/IndexTTS/.")
     else:
-        print("Skipped optional Index-TTS. Use --with-indextts to download it.")
-    print("Basic model assets are ready under models/. Do not commit model files to Git.")
+        print("Skipping optional Index-TTS checkpoints. Use --with-indextts if you need them.")
+    print("Requested model assets are ready under models/. Do not commit model files to Git.")
 
 
 if __name__ == "__main__":

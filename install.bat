@@ -6,37 +6,31 @@ echo ===================================================
 echo   Xinbao v1.0.0 dependency installer
 echo ===================================================
 echo.
+echo This script creates a private project environment in .venv.
+echo Recommended Python: 3.10 or 3.11.
+echo.
 
-set "PYTHON_EXE=python"
-if exist ".venv\Scripts\python.exe" set "PYTHON_EXE=.venv\Scripts\python.exe"
-if exist "venv\Scripts\python.exe" set "PYTHON_EXE=venv\Scripts\python.exe"
-
-echo [1/2] Checking Python...
-"%PYTHON_EXE%" --version
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] Python was not found.
-    echo Please install Python 3.10+ or activate your conda environment first.
-    pause
-    exit /b 1
+set "BOOTSTRAP_PYTHON=python"
+if exist ".venv\Scripts\python.exe" set "BOOTSTRAP_PYTHON=.venv\Scripts\python.exe"
+if not exist ".venv\Scripts\python.exe" (
+    where python >nul 2>nul
+    if errorlevel 1 set "BOOTSTRAP_PYTHON=py"
 )
 
-echo.
-echo [2/2] Installing project dependencies...
-"%PYTHON_EXE%" -m pip install -r requirements.txt
+"%BOOTSTRAP_PYTHON%" tools\setup_env.py
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Dependency installation failed.
-    echo You can retry after switching PyPI mirror or checking your Python environment.
+    echo If your PC has no Python 3.10/3.11, install one and rerun this file.
+    echo For CPU-only installation, run:
+    echo     python tools\setup_env.py --torch cpu
+    echo.
     pause
-    exit /b 1
+    exit /b %errorlevel%
 )
 
 echo.
-echo ===================================================
-echo   Install completed.
-echo   Next:
-echo     download_models.bat
-echo     start_xinbao_desktop.bat
-echo ===================================================
+echo [OK] Dependencies are installed in .venv.
+echo Next step: double-click download_models.bat, then start_xinbao_desktop.bat.
+echo.
 pause
