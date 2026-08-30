@@ -1,8 +1,12 @@
 import sys
 import queue
-import threading
+import subprocess
 import time
 import urllib.request
+from pathlib import Path
+
+from runtime_paths import project_root
+from startup_checks import find_free_port, run_all
 
 
 DEFAULT_HOST = "127.0.0.1"
@@ -15,8 +19,7 @@ def build_window_url(host=DEFAULT_HOST, port=DEFAULT_PORT):
 
 def missing_pywebview_message():
     return (
-        "缺少桌面窗口依赖 pywebview。请先运行：pip install pywebview，"
-        "之后再执行 python desktop_launcher.py。"
+        "缺少桌面窗口依赖 pywebview，请重新安装芯宝。开发者可运行：pip install pywebview"
     )
 
 
@@ -52,6 +55,15 @@ def run_backend(host=DEFAULT_HOST, port=DEFAULT_PORT, startup_errors=None):
         raise
 
 
+def start_backend_process(host, port):
+    backend_script = Path(project_root()) / "BackEnd" / "simple.py"
+    return subprocess.Popen(
+        [sys.executable, str(backend_script), "--host", host, "--port", str(port)],
+        cwd=str(project_root()),
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+
+
 def open_desktop_window(url):
     try:
         import webview
@@ -64,19 +76,27 @@ def open_desktop_window(url):
 
 def main():
     host = DEFAULT_HOST
-    port = DEFAULT_PORT
+    port = find_free_port(host)
     url = build_window_url(host, port)
     startup_errors = queue.Queue()
 
-    server_thread = threading.Thread(
-        target=run_backend,
-        kwargs={"host": host, "port": port, "startup_errors": startup_errors},
-        daemon=True,
-    )
-    server_thread.start()
-    wait_for_server(url, startup_errors=startup_errors)
-    open_desktop_window(url)
-    return 0
+    failed_checks = [result for result in run_all(project_root()) if not result.ok]
+    if failed_checks:
+        details = "\n".join(f"[{item.code}] {item.message}" for item in failed_checks)
+        raise RuntimeError(f"芯宝启动检查未通过：\n{details}")
+
+    backend_process = start_backend_process(host, port)
+    try:
+        wait_for_server(url, startup_errors=startup_errors)
+        open_desktop_window(url)
+        return 0
+    finally:
+        if backend_process.poll() is None:
+            backend_process.terminate()
+            try:
+                backend_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                backend_process.kill()
 
 
 if __name__ == "__main__":

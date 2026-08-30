@@ -31,8 +31,10 @@ from BackEnd.tts_engine import generate_tts_audio, get_tts_extension, limit_tts_
 
 import threading
 import hashlib
+import argparse
 
 app = Flask(__name__)
+MODEL_READY = False
 
 
 import json
@@ -114,6 +116,16 @@ def update_settings():
     return jsonify({"message": "芯宝的初始核心设定已保存！"})
 
 CONFIG = load_config()
+
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    return jsonify({
+        "status": "ok" if MODEL_READY else "starting",
+        "version": "1.0.6",
+        "gpu": {"ready": bool(MODEL_READY)},
+        "models": {"ready": bool(MODEL_READY)},
+    }), (200 if MODEL_READY else 503)
 
 CORS(app, resources={
     r"/api/*": {
@@ -239,7 +251,7 @@ collection = None
 reranker_model = None
 
 def init_model():
-    global embed_model, collection, reranker_model
+    global embed_model, collection, reranker_model, MODEL_READY
     route_classifier_path = os.path.join(project_root, "assets", "classifier", "route_classifier.joblib")
     classifier = load_route_classifier(route_classifier_path)
     print("✅ 轻量路由分类器加载成功，release 用户无需训练分类器。")
@@ -275,6 +287,7 @@ def init_model():
     print("✅ 后台记忆与精排引擎已稳固挂载！")
     # ===================================================================
 
+    MODEL_READY = True
     return classifier, retrieve_answer
     
 
@@ -793,12 +806,16 @@ def manage_memory_item(memory_id):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--host', default='127.0.0.1')
+    parser.add_argument('--port', type=int, default=5000)
+    args = parser.parse_args()
     classifier, retrieve_answer = init_model()
 
     # 🔴 引入生产级 WSGI 服务器
     from waitress import serve
     print("🚀 芯宝后端已启动！(基于 Waitress 生产级容器运行中...)")
-    print("🌐 监听地址: http://0.0.0.0:5000")
+    print(f"🌐 监听地址: http://{args.host}:{args.port}")
     
     # 替代原本脆弱的 app.run()，开启 4 个并发线程处理前端请求
-    serve(app, host='0.0.0.0', port=5000, threads=4)
+    serve(app, host=args.host, port=args.port, threads=4)
