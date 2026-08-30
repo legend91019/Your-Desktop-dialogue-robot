@@ -2,7 +2,11 @@ import sys
 from pathlib import Path
 import requests
 from flask_cors import CORS # 如果运行报错，请在终端执行 pip install flask-cors
-project_root = str(Path(__file__).parent.parent.absolute())
+import shutil
+
+from runtime_paths import config_path, ensure_user_dirs, project_root as get_project_root, resolve_resource
+
+project_root = str(get_project_root())
 sys.path.append(project_root)
 
 import re
@@ -35,13 +39,17 @@ import json
 
 # ==================== 队友新增：好感度持久化逻辑 ====================
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
-FAVORABILITY_FILE = os.path.join(BACKEND_DIR, "favorability.json")
+USER_DIRS = ensure_user_dirs()
+FAVORABILITY_FILE = os.path.join(USER_DIRS["root"], "favorability.json")
 
 @app.route('/static/<path:filename>')
 def serve_audio(filename):
     # 允许前端访问根目录下的 static 文件夹里的音频
-    static_dir = os.path.join(project_root, "static")
-    return send_from_directory(static_dir, filename)
+    user_audio_dir = str(USER_DIRS["audio"])
+    packaged_static_dir = str(resolve_resource("static"))
+    if os.path.isfile(os.path.join(user_audio_dir, filename)):
+        return send_from_directory(user_audio_dir, filename)
+    return send_from_directory(packaged_static_dir, filename)
 
 @app.route('/')
 def serve_frontend():
@@ -68,15 +76,22 @@ def save_favorability(score):
 
 # 加载配置文件
 def load_config():
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'config.json')
-    with open(config_path, 'r', encoding='utf-8') as f:
+    target = config_path()
+    if not target.exists():
+        template = resolve_resource("config.example.json")
+        if not template.exists():
+            template = resolve_resource("config.json")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(template, target)
+    with target.open('r', encoding='utf-8') as f:
         return json.load(f)
     
 # --- 新增：保存配置的函数 ---
 def save_config(new_config):
     global CONFIG
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'config.json')
-    with open(config_path, 'w', encoding='utf-8') as f:
+    target = config_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open('w', encoding='utf-8') as f:
         json.dump(new_config, f, indent=4, ensure_ascii=False)
     CONFIG = new_config
 
@@ -117,9 +132,7 @@ CORS(app, resources={
 chat_history = []
 
 # 确保上传文件夹存在
-UPLOAD_FOLDER = 'uploads'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+UPLOAD_FOLDER = str(USER_DIRS["uploads"])
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 
@@ -227,14 +240,12 @@ reranker_model = None
 
 def init_model():
     global embed_model, collection, reranker_model
-    current_script_path = os.path.abspath(__file__)
-    project_root = os.path.dirname(os.path.dirname(current_script_path))
     route_classifier_path = os.path.join(project_root, "assets", "classifier", "route_classifier.joblib")
     classifier = load_route_classifier(route_classifier_path)
     print("✅ 轻量路由分类器加载成功，release 用户无需训练分类器。")
 
     
-    md_file = os.path.join(project_root, "knowledge.md")
+    md_file = str(resolve_resource(CONFIG['path_settings'].get('knowledge_base', 'knowledge.md')))
     
     
     # ==================== 🔴 以下是新增的修改 ====================
@@ -243,10 +254,10 @@ def init_model():
     from sentence_transformers import SentenceTransformer, CrossEncoder
     print("⏳ 正在启动后台记忆处理引擎 (只加载一次，防止内存爆炸)...")
     
-    db_dir = os.path.join(project_root, CONFIG['path_settings']['chroma_db_dir'])
+    db_dir = str(USER_DIRS["chroma_db"])
     client = chromadb.PersistentClient(path=db_dir)
     collection = client.get_or_create_collection(name="qbit_memory")
-    embed_model = SentenceTransformer(os.path.join(project_root,"models","embedding"))
+    embed_model = SentenceTransformer(str(resolve_resource("models/embedding")))
     retrieve_answer = create_rag_retriever(
         md_file,
         embed_model=embed_model,
@@ -260,7 +271,7 @@ def init_model():
     # ==================== 🔴 新增：挂载 BGE 精排模型 ====================
     print("⏳ 正在挂载交叉注意力精排引擎 (Reranker)...")
     # 第一次运行会自动从 HuggingFace 极速下载，大概 1GB
-    reranker_model = CrossEncoder(os.path.join(project_root,"models","reranker")) 
+    reranker_model = CrossEncoder(str(resolve_resource("models/reranker")))
     print("✅ 后台记忆与精排引擎已稳固挂载！")
     # ===================================================================
 
@@ -603,7 +614,7 @@ def handle_chat():
                         
                         if clean_text: 
                             # 2. 自动清理机制：删掉超过 3 分钟的旧音频
-                            static_dir = os.path.join(project_root, "static")
+                            static_dir = str(USER_DIRS["audio"])
                             now = time.time()
                             for pattern in ("*.mp3", "*.wav"):
                                 for f in glob.glob(os.path.join(static_dir, pattern)):
