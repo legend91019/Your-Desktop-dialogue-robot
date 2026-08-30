@@ -29,9 +29,9 @@ class ReleaseBuildTest(unittest.TestCase):
         self.assertIn("PythonExe", script)
         self.assertIn("-PythonExe", script)
 
-    def test_runtime_build_normalizes_base_python_path(self):
+    def test_runtime_build_derives_base_python_path_without_stdout_parsing(self):
         script = (PROJECT_ROOT / "tools" / "build_runtime.ps1").read_text(encoding="utf-8")
-        self.assertIn(".Trim()", script)
+        self.assertIn("Resolve-Path -LiteralPath $PythonExe", script)
 
 
 if __name__ == "__main__":

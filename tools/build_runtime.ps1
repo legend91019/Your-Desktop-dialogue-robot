@@ -33,9 +33,8 @@ if (-not (Test-Path -LiteralPath $VenvPython)) {
 }
 
 if (-not (Test-Path -LiteralPath (Join-Path $RuntimePythonDir "python.exe"))) {
-    $basePrefix = (& $PythonExe -c "import sys; print(sys.base_prefix)") | Select-Object -Last 1
-    $basePrefix = $basePrefix.ToString().Trim()
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $basePrefix)) { throw "Cannot locate CPython base runtime" }
+    $basePrefix = Split-Path -Parent (Resolve-Path -LiteralPath $PythonExe)
+    if (-not (Test-Path -LiteralPath (Join-Path $basePrefix "python.exe"))) { throw "Cannot locate CPython base runtime" }
     Copy-Item -LiteralPath $basePrefix -Destination $RuntimePythonDir -Recurse -Force
 }
 
