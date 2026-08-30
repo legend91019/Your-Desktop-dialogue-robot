@@ -13,9 +13,17 @@
 
 当前版本：`v1.0.6`。这是面向 GPU 桌面演示的 release 版本：默认安装 CUDA 12.8 版 PyTorch，同时保留 v1.0.5 的内置轻量路由分类器，普通用户不需要训练分类器。
 
-## 快速开始
+## 快速开始（普通用户）
 
-普通用户按这三个脚本走即可：
+正式发布版提供 `Xinbao-Setup-v<version>.exe` 安装程序。普通用户只需安装并双击桌面快捷方式，不需要安装 Python、Conda、pip，也不需要运行下面的开发者脚本。
+
+安装包内置 CPython 3.11、项目私有运行环境、CUDA PyTorch、本地 RAG 模型和路由分类器。首版要求 Windows 10/11、NVIDIA GPU（建议显存 4 GB 以上）以及支持 CUDA 12.x 的驱动。DeepSeek 对话和 edge-tts 语音仍需要联网，API Key 由用户在设置面板自行填写。
+
+详细说明见 [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)。
+
+## 开发者/构建者流程
+
+开发者或未使用正式安装包的测试人员可以按这三个脚本运行：
 
 ```bat
 install.bat
