@@ -15,13 +15,13 @@ DefaultGroupName={#AppName}
 PrivilegesRequired=admin
 OutputDir=..\dist\installer
 OutputBaseFilename=Xinbao-Setup-v{#AppVersion}
-Compression=lzma2/ultra64
+Compression=lzma2/fast
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 UninstallDisplayIcon={app}\Xinbao.exe
 
 [Files]
-Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#PayloadDir}\*"; DestDir: "{app}"; Excludes: "*.pyc;*.pyo;*.whl;__pycache__\*"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]
 Name: "{autodesktop}\芯宝 Xinbao"; Filename: "{app}\Xinbao.exe"; WorkingDir: "{app}"

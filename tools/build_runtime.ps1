@@ -72,4 +72,45 @@ Copy-Item -LiteralPath (Join-Path $ProjectRoot "desktop_launcher.py") -Destinati
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "knowledge.md") -Destination (Join-Path $payload "knowledge.md") -Force
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "config.example.json") -Destination (Join-Path $payload "config.example.json") -Force
 
+# Keep the installer payload focused on runtime files. Build-only tooling and
+# bytecode/test caches can be regenerated and are not needed by end users.
+$sitePackages = Join-Path $payload ".venv\Lib\site-packages"
+$removeFromPayload = @(
+    (Join-Path $payload "tools"),
+    (Join-Path $sitePackages "PyInstaller"),
+    (Join-Path $sitePackages "pip"),
+    (Join-Path $sitePackages "setuptools"),
+    (Join-Path $sitePackages "wheel"),
+    (Join-Path $sitePackages "modelscope"),
+    (Join-Path $sitePackages "kubernetes"),
+    (Join-Path $sitePackages "build"),
+    (Join-Path $sitePackages "pyproject_hooks"),
+    (Join-Path $sitePackages "altgraph"),
+    (Join-Path $sitePackages "pefile.py"),
+    (Join-Path $sitePackages "peutils.py"),
+    (Join-Path $sitePackages "torch\include"),
+    (Join-Path $sitePackages "onnxruntime\transformers"),
+    (Join-Path $payload "python\Lib\site-packages"),
+    (Join-Path $payload "BackEnd\test.py"),
+    (Join-Path $payload "utils\Classifier\test.py"),
+    (Join-Path $payload "utils\Retriever\test.py"),
+    (Join-Path $payload "utils\Retriever\input.docx")
+)
+foreach ($path in $removeFromPayload) {
+    if (Test-Path -LiteralPath $path) {
+        Remove-Item -LiteralPath $path -Recurse -Force
+    }
+}
+Get-ChildItem -LiteralPath $payload -Recurse -Directory -Force -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -eq "__pycache__" } |
+    Sort-Object FullName -Descending |
+    Remove-Item -Recurse -Force
+Get-ChildItem -LiteralPath $payload -Recurse -File -Force -ErrorAction SilentlyContinue |
+    Where-Object { $_.Extension -in @(".pyc", ".pyo", ".whl") } |
+    Remove-Item -Force
+Get-ChildItem -LiteralPath $payload -Recurse -Directory -Force -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -eq ".idea" -or $_.Name -eq "._____temp" } |
+    Sort-Object FullName -Descending |
+    Remove-Item -Recurse -Force
+
 Write-Host "Release runtime ready: $VenvDir"

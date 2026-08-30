@@ -13,15 +13,23 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _is_release_file(path: Path) -> bool:
+    """Exclude editor metadata and generated caches from release checksums."""
+    ignored_parts = {".idea", "._____temp", "__pycache__"}
+    return not any(part in ignored_parts for part in path.parts)
+
+
 def create_manifest(root: Path, paths: list[Path]) -> dict:
     root = Path(root).resolve()
     files = []
     for candidate in paths:
         path = Path(candidate)
         if path.is_dir():
-            candidates = sorted(item for item in path.rglob("*") if item.is_file())
+            candidates = sorted(
+                item for item in path.rglob("*") if item.is_file() and _is_release_file(item)
+            )
         else:
-            candidates = [path]
+            candidates = [path] if _is_release_file(path) else []
         for item in candidates:
             item = item.resolve()
             relative = item.relative_to(root).as_posix()
