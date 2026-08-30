@@ -115,6 +115,12 @@ def update_settings():
     save_config(CONFIG)
     return jsonify({"message": "芯宝的初始核心设定已保存！"})
 
+
+@app.route('/api/settings/status', methods=['GET'])
+def settings_status():
+    api_key = CONFIG.get('api_settings', {}).get('deepseek_api_key', '')
+    return jsonify({"has_api_key": bool(str(api_key).strip())})
+
 CONFIG = load_config()
 
 

@@ -481,6 +481,20 @@
     function openSettings() { settingsModal.classList.remove('hidden'); }
     function closeSettings() { settingsModal.classList.add('hidden'); }
 
+    async function checkSettingsStatus() {
+      try {
+        const response = await fetch('/api/settings/status');
+        const status = await response.json();
+        if (!status.has_api_key) {
+          openSettings();
+        }
+      } catch (error) {
+        console.warn('无法读取芯宝配置状态:', error);
+      }
+    }
+
+    checkSettingsStatus();
+
     function openMemoryPanel() {
       memoryModal.classList.remove('hidden');
       loadMemories();
@@ -504,7 +518,7 @@
       list.innerHTML = '<div class="msg-bubble sys-msg">[ MEMORY ]: LOADING...</div>';
 
       try {
-        const response = await fetch('http://127.0.0.1:5000/api/memories');
+        const response = await fetch('/api/memories');
         const data = await response.json();
         if (!response.ok) {
           list.innerHTML = `<div class="msg-bubble sys-msg">[ ERROR ]: ${escapeHtml(data.error || 'LOAD FAILED')}</div>`;
@@ -547,7 +561,7 @@
         return;
       }
 
-      const response = await fetch('http://127.0.0.1:5000/api/memories', {
+        const response = await fetch('/api/memories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
@@ -569,7 +583,7 @@
         return;
       }
 
-      const response = await fetch(`http://127.0.0.1:5000/api/memories/${encodeURIComponent(memory.id)}`, {
+        const response = await fetch(`/api/memories/${encodeURIComponent(memory.id)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
@@ -587,7 +601,7 @@
       if (!memory) return;
       if (!confirm('确定删除这条长期记忆吗？删除后不会再被芯宝检索到。')) return;
 
-      const response = await fetch(`http://127.0.0.1:5000/api/memories/${encodeURIComponent(memory.id)}`, {
+        const response = await fetch(`/api/memories/${encodeURIComponent(memory.id)}`, {
         method: 'DELETE'
       });
       const data = await response.json();
@@ -612,7 +626,7 @@
 
       try {
         // 调用我们刚刚在 simple.py 里新写的 /api/settings 接口
-        const response = await fetch('http://127.0.0.1:5000/api/settings', {
+        const response = await fetch('/api/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -827,7 +841,7 @@
       const contentSpan = msgDiv.querySelector('.msg-content');
 
       try {
-          const response = await fetch('http://127.0.0.1:5000/api/chat', {
+          const response = await fetch('/api/chat', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ message: text }) 
@@ -886,7 +900,7 @@
                                     console.log("后端已尝试本机语音播放，前端继续执行兜底播放。", dataObj.local_audio);
                                   }
                                   const player = document.getElementById('robotVoicePlayer');
-                                  player.src = 'http://127.0.0.1:5000' + dataObj.audio_url + '?t=' + Date.now();
+                                  player.src = dataObj.audio_url + '?t=' + Date.now();
                                   player.load();
         
                                   // 👇 恢复正常音量
