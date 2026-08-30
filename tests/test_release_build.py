@@ -29,6 +29,10 @@ class ReleaseBuildTest(unittest.TestCase):
         self.assertIn("PythonExe", script)
         self.assertIn("-PythonExe", script)
 
+    def test_runtime_build_normalizes_base_python_path(self):
+        script = (PROJECT_ROOT / "tools" / "build_runtime.ps1").read_text(encoding="utf-8")
+        self.assertIn(".Trim()", script)
+
 
 if __name__ == "__main__":
     unittest.main()
