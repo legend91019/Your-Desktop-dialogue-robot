@@ -1,6 +1,7 @@
 param(
     [string]$Version = "1.0.0",
     [string]$IsccPath = "ISCC.exe",
+    [string]$PythonExe = "python",
     [switch]$SkipRuntimeBuild
 )
 
@@ -12,7 +13,7 @@ $InstallerDir = Join-Path $DistDir "installer"
 
 Set-Location -LiteralPath $ProjectRoot
 if (-not $SkipRuntimeBuild) {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "tools\build_runtime.ps1") -Clean
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "tools\build_runtime.ps1") -Clean -PythonExe $PythonExe
     if ($LASTEXITCODE -ne 0) { throw "Runtime build failed" }
 }
 

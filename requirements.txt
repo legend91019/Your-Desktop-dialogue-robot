@@ -84,7 +84,7 @@ requests-oauthlib==2.0.0
 rich==15.0.0
 rpds-py==0.30.0
 safetensors==0.7.0
-scikit-learn==1.7.2
+scikit-learn==1.5.1
 scipy==1.15.3
 sentence-transformers==5.5.1
 sentencepiece==0.2.1

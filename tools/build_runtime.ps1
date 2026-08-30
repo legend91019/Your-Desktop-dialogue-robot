@@ -16,6 +16,10 @@ Set-Location -LiteralPath $ProjectRoot
 if ($Clean -and (Test-Path -LiteralPath $BuildRoot)) {
     Remove-Item -LiteralPath $BuildRoot -Recurse -Force
 }
+$PayloadRoot = Join-Path $ProjectRoot "dist\Xinbao"
+if ($Clean -and (Test-Path -LiteralPath $PayloadRoot)) {
+    Remove-Item -LiteralPath $PayloadRoot -Recurse -Force
+}
 New-Item -ItemType Directory -Force -Path $BuildRoot | Out-Null
 
 $version = & $PythonExe --version 2>&1
@@ -62,6 +66,9 @@ Copy-Item -LiteralPath (Join-Path $ProjectRoot "utils") -Destination (Join-Path 
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "assets") -Destination (Join-Path $payload "assets") -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "models") -Destination (Join-Path $payload "models") -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "tools") -Destination (Join-Path $payload "tools") -Recurse -Force
+Copy-Item -LiteralPath (Join-Path $ProjectRoot "runtime_paths.py") -Destination (Join-Path $payload "runtime_paths.py") -Force
+Copy-Item -LiteralPath (Join-Path $ProjectRoot "startup_checks.py") -Destination (Join-Path $payload "startup_checks.py") -Force
+Copy-Item -LiteralPath (Join-Path $ProjectRoot "desktop_launcher.py") -Destination (Join-Path $payload "desktop_launcher.py") -Force
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "knowledge.md") -Destination (Join-Path $payload "knowledge.md") -Force
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "config.example.json") -Destination (Join-Path $payload "config.example.json") -Force
 

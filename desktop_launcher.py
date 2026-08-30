@@ -5,7 +5,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from runtime_paths import project_root
+from runtime_paths import project_root, user_data_root
 from startup_checks import find_free_port, run_all
 
 
@@ -23,10 +23,15 @@ def missing_pywebview_message():
     )
 
 
-def wait_for_server(url, timeout_seconds=120, startup_errors=None):
+def wait_for_server(url, timeout_seconds=120, startup_errors=None, backend_process=None, backend_log=None):
     deadline = time.time() + timeout_seconds
     last_error = None
     while time.time() < deadline:
+        if backend_process is not None:
+            exit_code = backend_process.poll()
+            if exit_code is not None:
+                log_hint = f"，日志：{backend_log}" if backend_log else ""
+                raise RuntimeError(f"后端进程异常退出，退出码 {exit_code}{log_hint}")
         if startup_errors is not None:
             try:
                 raise startup_errors.get_nowait()
@@ -57,11 +62,19 @@ def run_backend(host=DEFAULT_HOST, port=DEFAULT_PORT, startup_errors=None):
 
 def start_backend_process(host, port):
     command = build_backend_command(host, port)
-    return subprocess.Popen(
-        command,
-        cwd=str(project_root()),
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-    )
+    log_path = user_data_root() / "logs" / "backend.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_handle = log_path.open("a", encoding="utf-8")
+    try:
+        return subprocess.Popen(
+            command,
+            cwd=str(project_root()),
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+        )
+    finally:
+        log_handle.close()
 
 
 def build_backend_command(host, port):
@@ -91,7 +104,12 @@ def main():
 
     backend_process = start_backend_process(host, port)
     try:
-        wait_for_server(url, startup_errors=startup_errors)
+        wait_for_server(
+            url,
+            startup_errors=startup_errors,
+            backend_process=backend_process,
+            backend_log=user_data_root() / "logs" / "backend.log",
+        )
         open_desktop_window(url)
         return 0
     finally:

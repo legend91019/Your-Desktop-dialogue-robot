@@ -31,6 +31,19 @@ class DesktopLauncherTest(unittest.TestCase):
         command = build_backend_command("127.0.0.1", 5999)
         self.assertEqual(command[2], "BackEnd.simple")
 
+    def test_wait_for_server_reports_backend_process_exit_immediately(self):
+        class ExitedProcess:
+            def poll(self):
+                return 7
+
+        with self.assertRaisesRegex(RuntimeError, "退出码 7"):
+            wait_for_server(
+                "http://127.0.0.1:5999/",
+                timeout_seconds=5,
+                backend_process=ExitedProcess(),
+                backend_log="C:/logs/backend.log",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

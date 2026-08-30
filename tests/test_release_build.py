@@ -24,6 +24,11 @@ class ReleaseBuildTest(unittest.TestCase):
         self.assertEqual(manifest["files"][0]["path"], "models/embedding/config.json")
         self.assertEqual(len(manifest["files"][0]["sha256"]), 64)
 
+    def test_installer_build_forwards_python_executable(self):
+        script = (PROJECT_ROOT / "tools" / "build_installer.ps1").read_text(encoding="utf-8")
+        self.assertIn("PythonExe", script)
+        self.assertIn("-PythonExe", script)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -39,6 +39,10 @@ class ReleaseInstallerTest(unittest.TestCase):
         self.assertNotIn("+cu128", requirements)
         self.assertNotRegex(requirements, r"(?m)^torch(?:vision|audio)?==")
 
+    def test_requirements_match_packaged_classifier_sklearn_version(self):
+        requirements = (PROJECT_ROOT / "requirements.txt").read_text(encoding="utf-8")
+        self.assertIn("scikit-learn==1.5.1", requirements)
+
     def test_runtime_bats_use_project_venv(self):
         for filename in ["download_models.bat", "models_ready.bat", "start_xinbao_desktop.bat"]:
             with self.subTest(filename=filename):
