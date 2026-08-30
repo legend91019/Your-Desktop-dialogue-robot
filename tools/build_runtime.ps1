@@ -60,6 +60,7 @@ Copy-Item -LiteralPath (Join-Path $ProjectRoot "BackEnd") -Destination (Join-Pat
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "FrontEnd") -Destination (Join-Path $payload "FrontEnd") -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "utils") -Destination (Join-Path $payload "utils") -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "assets") -Destination (Join-Path $payload "assets") -Recurse -Force
+Copy-Item -LiteralPath (Join-Path $ProjectRoot "models") -Destination (Join-Path $payload "models") -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "tools") -Destination (Join-Path $payload "tools") -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "knowledge.md") -Destination (Join-Path $payload "knowledge.md") -Force
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "config.example.json") -Destination (Join-Path $payload "config.example.json") -Force

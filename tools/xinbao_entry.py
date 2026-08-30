@@ -16,6 +16,7 @@ def main() -> int:
     env = os.environ.copy()
     site_packages = root / ".venv" / "Lib" / "site-packages"
     env["PYTHONNOUSERSITE"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(site_packages), env.get("PYTHONPATH", "")]))
     process = subprocess.run([str(python_exe), str(launcher)], cwd=str(root), env=env)
     return int(process.returncode)

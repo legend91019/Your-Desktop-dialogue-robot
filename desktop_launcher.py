@@ -56,12 +56,16 @@ def run_backend(host=DEFAULT_HOST, port=DEFAULT_PORT, startup_errors=None):
 
 
 def start_backend_process(host, port):
-    backend_script = Path(project_root()) / "BackEnd" / "simple.py"
+    command = build_backend_command(host, port)
     return subprocess.Popen(
-        [sys.executable, str(backend_script), "--host", host, "--port", str(port)],
+        command,
         cwd=str(project_root()),
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
+
+
+def build_backend_command(host, port):
+    return [sys.executable, "-m", "BackEnd.simple", "--host", host, "--port", str(port)]
 
 
 def open_desktop_window(url):

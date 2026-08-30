@@ -1,5 +1,10 @@
 import sys
 from pathlib import Path
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 import requests
 from flask_cors import CORS # 如果运行报错，请在终端执行 pip install flask-cors
 import shutil

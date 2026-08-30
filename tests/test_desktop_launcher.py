@@ -1,7 +1,7 @@
 import queue
 import unittest
 
-from desktop_launcher import build_window_url, missing_pywebview_message, wait_for_server
+from desktop_launcher import build_backend_command, build_window_url, missing_pywebview_message, wait_for_server
 
 
 class DesktopLauncherTest(unittest.TestCase):
@@ -20,6 +20,16 @@ class DesktopLauncherTest(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "backend import failed"):
             wait_for_server("http://127.0.0.1:5999/", timeout_seconds=5, startup_errors=errors)
+
+    def test_backend_command_runs_module_from_project_root(self):
+        command = build_backend_command("127.0.0.1", 5999)
+        self.assertIn("-m", command)
+        self.assertIn("BackEnd.simple", command)
+        self.assertNotIn("BackEnd\\simple.py", command)
+
+    def test_backend_command_uses_module_entrypoint(self):
+        command = build_backend_command("127.0.0.1", 5999)
+        self.assertEqual(command[2], "BackEnd.simple")
 
 
 if __name__ == "__main__":
