@@ -8,12 +8,15 @@
 - 首次配置 DeepSeek API Key 时需要联网
 - 使用语音功能时需要联网访问 edge-tts
 
-## 安装与启动
+## 下载、安装与启动
 
-1. 双击 `Xinbao-Setup-v<version>.exe`。
-2. 按安装向导完成安装。
-3. 双击桌面上的“芯宝 Xinbao”。
-4. 首次打开时，在设置面板填写自己的 DeepSeek API Key，并保存主人信息。
+完整安装器通过 GitHub Release 说明中的外部下载地址提供。由于安装器包含 CUDA PyTorch 和本地模型，文件约 3.55 GiB，不能作为单个 GitHub Release 附件。
+
+1. 从项目维护者提供的外部地址下载 `Xinbao-Setup-v<version>.exe`。
+2. 按 Release 中的 `.sha256` 文件校验下载结果。
+3. 双击安装器并完成安装。
+4. 双击桌面上的“芯宝 Xinbao”。
+5. 首次打开时，在设置面板填写自己的 DeepSeek API Key，并保存主人信息。
 
 用户不需要安装 Python、Conda、pip，也不需要运行命令或下载模型。
 

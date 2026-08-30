@@ -1,162 +1,118 @@
-# 芯宝 Xinbao：桌面对话陪伴机器人
+<p align="center">
+  <img src="assets/branding/xinbao-logo.jpg" alt="芯宝 Xinbao logo" width="260">
+</p>
 
-芯宝是一个面向桌面演示与后续边缘设备部署的对话机器人项目。当前版本以 PC 桌面端为主，提供：
+<h1 align="center">芯宝 Xinbao</h1>
 
-- DeepSeek 云端对话能力；
-- 本地 ChromaDB 长程记忆与 RAG 检索；
-- 可管理记忆的后端接口；
-- 桌面窗口启动器；
-- 默认 `edge-tts` 语音输出；
-- 可选 Index-TTS 高音质语音方案。
+<p align="center">面向 Windows 的本地记忆对话陪伴机器人</p>
 
-本仓库的公开版本不应包含 API Key、本地数据库、运行音频、模型权重或个人报告材料。
+<p align="center">
+  <a href="https://github.com/legend91019/Your-Desktop-dialogue-robot/releases"><img src="https://img.shields.io/github/v/release/legend91019/Your-Desktop-dialogue-robot?display_name=tag&sort=semver" alt="Latest release"></a>
+  <a href="https://github.com/legend91019/Your-Desktop-dialogue-robot/releases"><img src="https://img.shields.io/github/downloads/legend91019/Your-Desktop-dialogue-robot/total" alt="Downloads"></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4" alt="Windows 10 / 11">
+  <img src="https://img.shields.io/badge/NVIDIA-CUDA%2012.x-76B900" alt="NVIDIA CUDA 12.x">
+</p>
 
-当前版本：`v1.0.6`。这是面向 GPU 桌面演示的 release 版本：默认安装 CUDA 12.8 版 PyTorch，同时保留 v1.0.5 的内置轻量路由分类器，普通用户不需要训练分类器。
+芯宝把云端对话、本地长期记忆和 RAG 检索放进一个桌面窗口。普通用户使用发布版安装器即可启动，不需要安装 Conda、Python、pip 或手工下载模型；只需在设置面板填写自己的 DeepSeek API Key。
 
-## 快速开始（普通用户）
+## 能做什么
 
-正式发布版提供 `Xinbao-Setup-v<version>.exe` 安装程序。普通用户只需安装并双击桌面快捷方式，不需要安装 Python、Conda、pip，也不需要运行下面的开发者脚本。
+- DeepSeek 流式对话
+- ChromaDB 长期记忆与本地知识检索
+- 可管理的记忆记录和用户上传内容
+- Windows 桌面窗口与动态本地端口
+- 默认 `edge-tts` 语音输出，支持可选 Index-TTS 服务
+- 启动前 GPU、模型文件和校验值检查
 
-安装包内置 CPython 3.11、项目私有运行环境、CUDA PyTorch、本地 RAG 模型和路由分类器。首版要求 Windows 10/11、NVIDIA GPU（建议显存 4 GB 以上）以及支持 CUDA 12.x 的驱动。DeepSeek 对话和 edge-tts 语音仍需要联网，API Key 由用户在设置面板自行填写。
+## 下载桌面版
 
-详细说明见 [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)。
+代码、发布说明和 SHA-256 校验文件位于 [GitHub Releases](https://github.com/legend91019/Your-Desktop-dialogue-robot/releases)。
 
-## 开发者/构建者流程
+完整 Windows 安装器包含 CUDA PyTorch 和本地模型，约 3.55 GiB，超过 GitHub 单个 Release 资产的 2 GiB 限制。安装器由项目维护者通过外部对象存储分发，下载地址会在对应 Release 说明中提供；不要从不明来源下载同名文件。
 
-开发者或未使用正式安装包的测试人员可以按这三个脚本运行：
-
-```bat
-install.bat
-download_models.bat
-start_xinbao_desktop.bat
-```
-
-### 1. 安装依赖
-
-双击运行：
-
-```bat
-install.bat
-```
-
-安装脚本会自动在项目目录下创建私有环境：
-
-```text
-.venv/
-```
-
-后续脚本都会使用：
-
-```text
-.venv\Scripts\python.exe
-```
-
-这样不会把依赖装进用户的系统 Python、Anaconda base 环境或其它项目环境。
-
-安装器会优先寻找电脑上已有的 Python 3.11 / 3.10。如果没有兼容版本，它会自动下载一个项目本地使用的 Python 3.11 运行时到：
-
-```text
-.python/
-```
-
-并使用它创建 `.venv/`。这两个目录都属于本地运行产物，不应该上传到 GitHub。
-
-默认安装 CUDA 12.8 版 PyTorch，以匹配芯宝的本地 RAG、reranker 和后续 GPU 推理需求。这个 wheel 较大，首次安装下载几 GB 属于正常现象。
-
-如果电脑没有 NVIDIA 显卡，只想用 CPU fallback，可以先在 PowerShell 里设置：
+下载后可用 PowerShell 校验：
 
 ```powershell
-$env:XINBAO_TORCH_VARIANT="cpu"
+Get-FileHash .\Xinbao-Setup-v1.0.7.exe -Algorithm SHA256
 ```
 
-然后再运行 `install.bat`。
+将结果与 Release 中的 `.sha256` 文件比较。安装器文件名中的版本号会随发布版本变化。
 
-### 2. 下载基础模型
+## 普通用户安装
 
-双击运行：
+1. Windows 10/11 64 位电脑安装支持 CUDA 12.x 的 NVIDIA 驱动。
+2. 运行 `Xinbao-Setup-v<version>.exe`，按向导完成安装。
+3. 从桌面快捷方式启动“芯宝 Xinbao”。
+4. 首次打开，在设置面板填写 DeepSeek API Key 和主人信息并保存。
 
-```bat
-download_models.bat
-```
-
-该脚本会下载基础 RAG / 向量检索模型，并检查仓库内置的轻量路由分类器：
+芯宝会把配置、API Key、长期记忆、上传文件、语音缓存和日志保存到：
 
 ```text
-assets/classifier/route_classifier.joblib
+%APPDATA%\Xinbao\
 ```
 
-普通用户不需要运行 `train_classifier.py`。它不会下载 Index-TTS 大模型。
+升级安装不会覆盖这些用户数据；卸载默认只删除程序文件。
 
-`models_ready.bat` 保留为旧流程兼容入口，作用与 `download_models.bat` 基本一致：
+## 系统要求与网络边界
+
+- Windows 10 或 Windows 11，64 位
+- NVIDIA GPU，建议显存不低于 4 GB
+- 支持 CUDA 12.x 的 NVIDIA 驱动
+- DeepSeek 对话需要联网并使用用户自己的 API Key
+- `edge-tts` 语音需要联网；语音失败不影响文字对话
+
+首版不支持无 NVIDIA GPU 的普通安装路径。启动器会在窗口打开前报告 GPU、驱动、显存、模型缺失、端口和后端初始化问题。
+
+## 开发者运行
+
+开发者可以在已安装 CPython 3.10/3.11 的环境中使用项目脚本：
 
 ```bat
-models_ready.bat
-```
-
-### 3. 启动桌面版
-
-双击运行：
-
-```bat
+install.bat
+download_models.bat
 start_xinbao_desktop.bat
 ```
 
-脚本会启动后端服务，并通过桌面窗口打开前端页面。
+需要 Index-TTS 开发资源时，可运行 `python tools/download_all_models.py --with-indextts`；普通用户安装器已提供默认的 edge-tts 语音路径。
 
-首次运行时，请在前端配置面板里填入 DeepSeek API Key 和主人信息。配置会保存到本地 `config.json`，不要把带真实 Key 的配置文件上传到公开仓库。
+这些脚本只服务于开发和调试，不是普通用户的安装步骤。构建发布运行时使用项目私有 `.venv`，不读取 Conda 环境；`hardware_product` 保留为硬件版本目录，不属于当前桌面版发布范围。
 
-## 可选：Index-TTS 高音质语音
-
-Release 默认使用 `edge-tts`，优先保证安装成功率和桌面演示稳定性。
-
-如果需要启用 Index-TTS：
-
-```bat
-.venv\Scripts\python.exe download_all_models.py --with-indextts
-```
-
-然后参考：
-
-```text
-docs/indextts_local_setup.md
-```
-
-Index-TTS 建议使用它自己的官方仓库和独立环境，不要把 Index-TTS 的复杂依赖混进主项目 `.venv`。
-
-## 项目结构
-
-```text
-BackEnd/                    后端服务、TTS、记忆管理
-FrontEnd/                   桌面窗口加载的前端页面
-tools/                      辅助脚本，包括环境安装、轻量分类器构建和 Index-TTS 服务桥接
-utils/                      分类器与 RAG 检索模块
-assets/classifier/          release 内置轻量路由分类器
-tests/                      单元测试
-docs/                       说明文档
-download_all_models.py      基础模型下载脚本，Index-TTS 可选
-train_classifier.py         旧版 BERT 分类器训练脚本，仅开发者需要
-tools/build_route_classifier.py  从 classifier_corpus.csv 生成 release 轻量分类器
-desktop_launcher.py         桌面启动入口
-install.bat                 创建 .venv 并安装依赖
-download_models.bat         下载基础模型
-start_xinbao_desktop.bat    启动桌面版
-```
-
-## 不要上传的内容
-
-请确认以下内容不会进入公开 GitHub 仓库：
-
-- `config.json` 中的真实 API Key；
-- `models/` 下的模型本体；
-- `chroma_db/` 本地记忆数据库；
-- `static/reply_*.mp3` 等运行音频；
-- `.venv/`、`.python/`、`.tools/`、`.uv-cache/`、`venv/` 等本地环境和安装缓存；
-- 个人报告、查新报告、临时缓存。
-
-## 测试
+运行测试：
 
 ```bat
 .venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-如果还没有安装 `.venv`，也可以在已有 Python 环境中运行同样的 unittest 命令做代码级检查。
+## 项目结构
+
+```text
+BackEnd/                 Flask/Waitress 后端、记忆和 TTS
+FrontEnd/                桌面窗口加载的前端页面
+utils/                   路由分类器与 RAG 检索
+assets/branding/         芯宝品牌 logo
+assets/classifier/       发布版轻量路由分类器
+packaging/               Inno Setup 安装器与 Windows 图标
+tools/                   构建、模型清单和开发辅助脚本
+docs/                    用户指南、发布说明和验收清单
+hardware_product/        硬件版本，当前不参与桌面发布
+```
+
+## 安全与隐私
+
+请不要提交以下内容：
+
+- 带真实 API Key 的 `config.json`
+- `.venv/`、`.python/` 和 `build/`、`dist/` 构建产物
+- `models/` 模型权重、`chroma_db/` 长期记忆和运行音频
+- 个人报告、临时缓存和硬件测试数据
+
+API Key 只保存在本机 `%APPDATA%\Xinbao\config.json`，日志不会记录 Key 明文。
+
+发布包内置轻量路由分类器文件 `assets/classifier/route_classifier.joblib`，无需首次启动时训练。
+
+## 发布版本
+
+- `v1.0.7`：Windows 桌面安装版、私有 CPython 3.11 运行时、CUDA PyTorch、本地模型清单和品牌安装器
+- `v1.0.6`：上一版桌面运行时基线，保留用于升级兼容性参考
+- 详细变更见 [`docs/RELEASE_NOTES_v1.0.7.md`](docs/RELEASE_NOTES_v1.0.7.md)
+- 用户操作见 [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)

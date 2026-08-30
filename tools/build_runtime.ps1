@@ -55,7 +55,11 @@ if ($LASTEXITCODE -ne 0) { throw "Failed to create model manifest" }
 
 $payload = Join-Path $ProjectRoot "dist\Xinbao"
 New-Item -ItemType Directory -Force -Path $payload | Out-Null
-& $VenvPython -m PyInstaller --noconfirm --clean --onefile --name Xinbao --distpath $payload --workpath (Join-Path $ProjectRoot "build\pyinstaller") --specpath (Join-Path $ProjectRoot "build\pyinstaller") (Join-Path $ProjectRoot "tools\xinbao_entry.py")
+$launcherIcon = Join-Path $ProjectRoot "packaging\assets\xinbao.ico"
+$pyInstallerArgs = @("--noconfirm", "--clean", "--onefile", "--name", "Xinbao", "--distpath", $payload, "--workpath", (Join-Path $ProjectRoot "build\pyinstaller"), "--specpath", (Join-Path $ProjectRoot "build\pyinstaller"))
+if (Test-Path -LiteralPath $launcherIcon) { $pyInstallerArgs += @("--icon", $launcherIcon) }
+$pyInstallerArgs += (Join-Path $ProjectRoot "tools\xinbao_entry.py")
+& $VenvPython -m PyInstaller @pyInstallerArgs
 if ($LASTEXITCODE -ne 0) { throw "Failed to build Xinbao.exe launcher" }
 
 Copy-Item -LiteralPath $RuntimePythonDir -Destination (Join-Path $payload "python") -Recurse -Force

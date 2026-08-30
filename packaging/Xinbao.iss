@@ -19,6 +19,7 @@ Compression=lzma2/fast
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 UninstallDisplayIcon={app}\Xinbao.exe
+SetupIconFile=assets\xinbao.ico
 
 [Files]
 Source: "{#PayloadDir}\*"; DestDir: "{app}"; Excludes: "*.pyc;*.pyo;*.whl;__pycache__\*"; Flags: recursesubdirs createallsubdirs ignoreversion
