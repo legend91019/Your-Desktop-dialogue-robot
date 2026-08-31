@@ -292,15 +292,15 @@
 
         <div class="input-group">
           <label>> MASTER_NAME (主人称呼):</label>
-          <input type="text" id="cfg-name" placeholder="如：阿顺" autocomplete="off">
+          <input type="text" id="cfg-name" placeholder="如：主人" autocomplete="off">
         </div>
         <div class="input-group">
           <label>> OCCUPATION (你的身份):</label>
-          <input type="text" id="cfg-occ" placeholder="如：计算机专业大学生" autocomplete="off">
+          <input type="text" id="cfg-occ" placeholder="如：你的职业或身份" autocomplete="off">
         </div>
         <div class="input-group">
           <label>> CURRENT_STATUS (近期状态):</label>
-          <input type="text" id="cfg-status" placeholder="如：最近在搞大创，压力大需要鼓励" autocomplete="off">
+          <input type="text" id="cfg-status" placeholder="如：你近期的状态或需要的支持" autocomplete="off">
         </div>
         <div class="input-group" style="margin-bottom: 30px;">
           <label>> DEEPSEEK_API_KEY (云端大脑秘钥):</label>
@@ -415,9 +415,9 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            master_name: name || "阿顺",
-            occupation: occ || "计算机专业大学生",
-            current_status: status || "最近压力比较大，需要多鼓励",
+            master_name: name || "主人",
+            occupation: occ || "未设置",
+            current_status: status || "未设置",
             api_key: key
           })
         });

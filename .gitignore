@@ -43,6 +43,15 @@ hardware_product/voice_records/
 *.mp3
 chroma_db/
 hardware_product/chroma_db/
+hardware_product/models/
+hardware_product/config.json
+hardware_product/favorability.json
+hardware_product/xinbao.pid
+hardware_product/voice_loop.pid
+hardware_product/m260c_bridge.pid
+hardware_product/xinbao.log
+hardware_product/voice_loop.log
+hardware_product/m260c_bridge.log
 
 # Temporary cloud upload files
 *.baiduyun.uploading.cfg

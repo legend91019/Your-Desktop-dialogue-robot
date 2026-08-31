@@ -24,10 +24,6 @@
             "创造者",
             "开发",
             "架构师",
-            "王勇顺",
-            "阳泽怡",
-            "徐启恒",
-            "杨赛宇",
             "记得",
             "喜欢",
             "习惯",
@@ -40,9 +36,9 @@
         ]
     },
     "user_settings": {
-        "master_name": "阿顺",
-        "occupation": "计算机专业大学生",
-        "current_status": "最近压力比较大，需要多鼓励"
+        "master_name": "主人",
+        "occupation": "未设置",
+        "current_status": "未设置"
     },
     "api_settings": {
         "deepseek_api_key": ""

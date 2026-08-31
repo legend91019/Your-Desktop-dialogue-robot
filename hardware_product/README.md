@@ -38,11 +38,13 @@ hardware_product/
 ├── app/tools/time_tool.py   # 时间工具
 ├── utils/                   # 工具模块 (分类器、检索器)
 ├── frontend/robot.html      # 赛博朋克风 Web UI
-├── config.json              # 配置文件
+├── config.example.json      # 无密钥的公开配置模板
 ├── knowledge.md             # 知识库 (静态设定 & 世界观)
 ├── requirements_pi.txt      # ARM Linux 依赖
 ├── setup_pi.sh              # 一键部署脚本
-├── run.sh                   # 启动/停止脚本
+├── run.sh                   # 启动/停止 Web 服务
+├── run_voice_loop.sh        # 启动/停止 M260C 语音循环
+├── m260c_voice_loop.py      # 唤醒、录音、ASR、对话和播放
 ├── install_service.sh       # 安装 systemd 开机自启
 └── xinbao.service           # systemd 服务模板
 ```
@@ -54,6 +56,11 @@ bash run.sh start      # 启动
 bash run.sh stop       # 停止
 bash run.sh status     # 查看状态
 bash run.sh restart    # 重启
+
+# M260C 语音循环（需先启动 Web 服务）
+bash run_voice_loop.sh start
+bash run_voice_loop.sh status
+bash run_voice_loop.sh log
 
 # 开机自启
 sudo bash install_service.sh
@@ -68,6 +75,8 @@ sudo bash install_service.sh
 | BGE Reranker | `models/reranker/` | 记忆精排 | ~1GB |
 
 模型通过 `setup_pi.sh` 从魔搭下载。也可从 PC 拷贝已有模型到 `models/` 目录。
+
+`config.json`、模型、虚拟环境、长期记忆、日志和运行音频都是本机数据，不纳入 Git。`setup_pi.sh` 会从 `config.example.json` 自动创建本机配置。
 
 ## 架构
 

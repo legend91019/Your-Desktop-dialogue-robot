@@ -65,6 +65,13 @@ def save_favorability(score):
 
 def load_config():
     config_path = os.path.join(PROJECT_ROOT, "config.json")
+    if not os.path.exists(config_path):
+        example_path = os.path.join(PROJECT_ROOT, "config.example.json")
+        with open(example_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=4, ensure_ascii=False)
+        return config
     with open(config_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -404,7 +411,7 @@ def handle_chat():
             history_text += f"{role}:{msg['content']}\n"
 
         # ==================== 提示词组装 ====================
-        user_name = CONFIG.get("user_settings", {}).get("master_name", "阿顺")
+        user_name = CONFIG.get("user_settings", {}).get("master_name", "主人")
         user_occ = CONFIG.get("user_settings", {}).get("occupation", "未知")
         user_status = CONFIG.get("user_settings", {}).get("current_status", "未知")
         bot_name = CONFIG["bot_settings"]["name"]
@@ -571,7 +578,12 @@ def handle_chat():
 
                         clean_text = re.sub(r"\[.*?\]", "", ai_response)
                         clean_text = re.sub(r"\(.*?\)|\（.*?\）", "", clean_text)
-                        clean_text = re.sub(r"[*#`~]", "", clean_text).strip()
+                        clean_text = re.sub(r"[*#`~]", "", clean_text)
+                        # Keep TTS input conservative: Edge TTS may fail on emoji/complex kaomoji.
+                        clean_text = re.sub(r"[^\u4e00-\u9fffA-Za-z0-9，。！？、,.!?；;：:\s]", "", clean_text)
+                        clean_text = re.sub(r"\s+", " ", clean_text).strip()
+                        if len(clean_text) > 180:
+                            clean_text = clean_text[:180]
 
                         if clean_text:
                             static_dir = os.path.join(PROJECT_ROOT, "static")

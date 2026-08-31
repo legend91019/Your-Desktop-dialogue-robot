@@ -9,6 +9,11 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
+if [ ! -f "$SCRIPT_DIR/config.json" ]; then
+    cp "$SCRIPT_DIR/config.example.json" "$SCRIPT_DIR/config.json"
+    echo "已从 config.example.json 创建本机配置"
+fi
+
 echo "╔══════════════════════════════════════════════╗"
 echo "║     芯宝 Xinbao - 香橙派 AIPro 部署脚本       ║"
 echo "╚══════════════════════════════════════════════╝"
