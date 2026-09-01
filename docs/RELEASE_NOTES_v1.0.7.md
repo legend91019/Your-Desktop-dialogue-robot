@@ -12,7 +12,14 @@ v1.0.7 是芯宝 Windows 桌面安装版的首个品牌化发布版本。
 
 ## 下载说明
 
-完整安装器约 3.55 GiB，超过 GitHub Release 单个资产的 2 GiB 限制。GitHub Release 仅承载源代码、发布说明、logo 和 SHA-256 校验信息；完整安装器由维护者通过外部对象存储提供。Release 页面中的下载地址必须由维护者在上传后填写，项目不伪造或内置第三方地址。
+完整安装器约 3.55 GiB，超过 GitHub Release 单个资产的 2 GiB 限制。GitHub Release 仅承载源代码、发布说明、logo 和 SHA-256 校验信息；完整安装器由维护者通过夸克网盘提供。
+
+我用夸克网盘给你分享了「Xinbao」，点击链接或复制整段内容，打开「夸克APP」即可获取。
+
+- 口令：`/~c1e73aaEi4~:/`
+- 下载链接：[https://pan.quark.cn/s/4a4913e45811?pwd=tpCL](https://pan.quark.cn/s/4a4913e45811?pwd=tpCL)
+- 提取码：`tpCL`
+- 安装文件：`Xinbao-Setup-v1.0.7.exe`
 
 安装器 SHA-256（发布构建）：
 
