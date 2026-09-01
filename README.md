@@ -24,26 +24,35 @@
 - 默认 `edge-tts` 语音输出，支持可选 Index-TTS 服务
 - 启动前 GPU、模型文件和校验值检查
 
-## 下载桌面版
+## 下载与使用：两条路径
 
-代码、发布说明和 SHA-256 校验文件位于 [GitHub Releases](https://github.com/legend91019/Your-Desktop-dialogue-robot/releases)。
+请先区分“普通用户安装器”和“GitHub 源码包”。它们的操作方式不同：
 
-完整 Windows 安装器包含 CUDA PyTorch 和本地模型，约 3.55 GiB，超过 GitHub 单个 Release 资产的 2 GiB 限制。安装器由项目维护者通过外部对象存储分发，下载地址会在对应 Release 说明中提供；不要从不明来源下载同名文件。
+| 适用人群 | 下载内容 | 能否双击即用 | 需要执行脚本 |
+| --- | --- | --- | --- |
+| 普通用户（推荐） | Release 说明中的 `Xinbao-Setup-v<version>.exe` | 可以，运行安装器后从桌面快捷方式启动 | 不需要 |
+| 开发者/需要查看代码的人 | GitHub Release 的 `Source code (zip)` | 不可以，这是源码包 | 需要 |
 
-下载后可用 PowerShell 校验：
+### 路径 A：普通用户下载 EXE
+
+完整 Windows 安装器包含私有 Python 运行环境、CUDA PyTorch、本地模型和芯宝程序。当前安装器约 3.55 GiB，超过 GitHub Release 单个资产的 2 GiB 限制，因此请从 [v1.0.7 Release 说明](https://github.com/legend91019/Your-Desktop-dialogue-robot/releases/tag/v1.0.7)中的夸克网盘链接下载，也可以直接使用下面的地址：
+
+- 夸克网盘：[下载 Xinbao](https://pan.quark.cn/s/4a4913e45811?pwd=tpCL)
+- 提取码：`tpCL`
+- 文件名：`Xinbao-Setup-v1.0.7.exe`
+
+1. 下载 `Xinbao-Setup-v1.0.7.exe`。
+2. 双击 EXE，按安装向导选择安装位置并完成安装。
+3. 从桌面或开始菜单打开“芯宝 Xinbao”。这个 EXE 是安装器，安装完成后再从快捷方式启动程序；不需要安装 Conda、Python、pip，也不需要运行 `install.bat`、`download_models.bat` 或其他脚本。
+4. 首次打开后，在设置面板填写自己的 DeepSeek API Key 和主人信息并保存。
+
+可选的文件校验（PowerShell）：
 
 ```powershell
 Get-FileHash .\Xinbao-Setup-v1.0.7.exe -Algorithm SHA256
 ```
 
-将结果与 Release 中的 `.sha256` 文件比较。安装器文件名中的版本号会随发布版本变化。
-
-## 普通用户安装
-
-1. Windows 10/11 64 位电脑安装支持 CUDA 12.x 的 NVIDIA 驱动。
-2. 运行 `Xinbao-Setup-v<version>.exe`，按向导完成安装。
-3. 从桌面快捷方式启动“芯宝 Xinbao”。
-4. 首次打开，在设置面板填写 DeepSeek API Key 和主人信息并保存。
+将结果与 [v1.0.7 Release 说明](https://github.com/legend91019/Your-Desktop-dialogue-robot/releases/tag/v1.0.7)中的 SHA-256 值比较。安装器文件名中的版本号会随发布版本变化。
 
 芯宝会把配置、API Key、长期记忆、上传文件、语音缓存和日志保存到：
 
@@ -63,9 +72,13 @@ Get-FileHash .\Xinbao-Setup-v1.0.7.exe -Algorithm SHA256
 
 首版不支持无 NVIDIA GPU 的普通安装路径。启动器会在窗口打开前报告 GPU、驱动、显存、模型缺失、端口和后端初始化问题。
 
-## 开发者运行
+### 路径 B：从 GitHub Release 下载源码
 
-开发者可以在已安装 CPython 3.10/3.11 的环境中使用项目脚本：
+GitHub Release 中的 `Source code (zip)` 只包含项目代码和轻量资源，不包含 `.venv`、模型权重、个人记忆或构建产物。因此源码包不能直接双击打开，适合开发、调试和二次修改。
+
+1. 安装 CPython 3.10 或 3.11，并确保电脑已安装支持 CUDA 12.x 的 NVIDIA 驱动。
+2. 解压源码包，在项目根目录打开命令提示符（该目录应能看到 `install.bat`）。
+3. 依次运行以下三个脚本：
 
 ```bat
 install.bat
@@ -73,7 +86,9 @@ download_models.bat
 start_xinbao_desktop.bat
 ```
 
-需要 Index-TTS 开发资源时，可运行 `python tools/download_all_models.py --with-indextts`；普通用户安装器已提供默认的 edge-tts 语音路径。
+首次运行的作用分别是：创建项目私有 `.venv` 并安装依赖、下载基础模型、启动桌面窗口。之后再次使用时只需运行 `start_xinbao_desktop.bat`。
+
+需要 Index-TTS 开发资源时，可在项目根目录运行 `python tools/download_all_models.py --with-indextts`；普通用户安装器已提供默认的 edge-tts 语音路径。
 
 这些脚本只服务于开发和调试，不是普通用户的安装步骤。构建发布运行时使用项目私有 `.venv`，不读取 Conda 环境；`hardware_product` 保留为硬件版本目录，不属于当前桌面版发布范围。
 
@@ -86,16 +101,39 @@ start_xinbao_desktop.bat
 ## 项目结构
 
 ```text
-BackEnd/                 Flask/Waitress 后端、记忆和 TTS
-FrontEnd/                桌面窗口加载的前端页面
-utils/                   路由分类器与 RAG 检索
-assets/branding/         芯宝品牌 logo
-assets/classifier/       发布版轻量路由分类器
-packaging/               Inno Setup 安装器与 Windows 图标
-tools/                   构建、模型清单和开发辅助脚本
-docs/                    用户指南、发布说明和验收清单
-hardware_product/        硬件版本，当前不参与桌面发布
+.
+├─ BackEnd/                       Flask/Waitress 后端
+│  ├─ simple.py                   对话接口、RAG 调用和后端路由
+│  ├─ memory_admin.py             长期记忆的管理接口
+│  ├─ tts_engine.py               edge-tts / Index-TTS 语音适配
+│  ├─ audio_player.py             本地音频播放
+│  └─ tools/time_tool.py          时间工具
+├─ FrontEnd/robot.html             桌面窗口加载的聊天页面
+├─ utils/
+│  ├─ Retriever/retriever.py       文档切分、向量检索和重排
+│  └─ Classifier/                  对话路由分类器
+├─ assets/
+│  ├─ branding/                    芯宝 logo
+│  └─ classifier/                  发布版轻量分类器文件
+├─ tools/                          发布构建、环境和模型辅助脚本
+│  ├─ bootstrap_release.ps1        准备发布环境
+│  ├─ build_runtime.ps1            构建私有运行时
+│  ├─ build_installer.ps1          构建 Windows 安装器
+│  └─ create_model_manifest.py     生成模型校验清单
+├─ desktop_launcher.py             启动后端并创建桌面窗口
+├─ runtime_paths.py                程序资源和 %APPDATA% 路径管理
+├─ startup_checks.py               GPU、模型、校验值和端口检查
+├─ download_all_models.py          基础模型下载入口
+├─ install.bat                     源码用户安装依赖
+├─ download_models.bat             源码用户下载模型
+├─ start_xinbao_desktop.bat        源码用户启动桌面端
+├─ packaging/                      Inno Setup 配置和 Windows 图标
+├─ tests/                           自动化测试
+├─ docs/                            用户指南、版本说明和发布清单
+└─ hardware_product/               香橙派硬件版本，不参与 Windows 桌面发布
 ```
+
+桌面端启动链路如下：`desktop_launcher.py` 先执行 `startup_checks.py`，找到本机可用端口后启动 `BackEnd.simple`；后端就绪后，使用 pywebview 打开 `FrontEnd/robot.html`。程序文件安装在安装目录，配置、记忆和运行日志写入 `%APPDATA%\Xinbao\`，两者相互分离。
 
 ## 安全与隐私
 
