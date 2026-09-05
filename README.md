@@ -6,6 +6,8 @@
 
 <p align="center">面向 Windows 的本地记忆对话陪伴机器人</p>
 
+<p align="center">厦门大学省级大创项目 · CRAIC 中国机器人及人工智能大赛福建赛区一等奖 · 国家级一等奖</p>
+
 <p align="center">
   <a href="https://github.com/legend91019/Your-Desktop-dialogue-robot/releases"><img src="https://img.shields.io/github/v/release/legend91019/Your-Desktop-dialogue-robot?display_name=tag&sort=semver" alt="Latest release"></a>
   <a href="https://github.com/legend91019/Your-Desktop-dialogue-robot/releases"><img src="https://img.shields.io/github/downloads/legend91019/Your-Desktop-dialogue-robot/total" alt="Downloads"></a>
